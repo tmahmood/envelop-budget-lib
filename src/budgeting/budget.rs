@@ -1,25 +1,69 @@
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use crate::budgeting::expense_category::ExpenseCategory;
 
+/// Budget is used to store all the expense categories and store their details in a file
+#[derive(Debug)]
 pub struct Budget {
     categories: HashMap<String, ExpenseCategory>,
     filed_as: String,
 }
 
+fn keys_match<T: Eq + Hash, U, V>(
+    map1: &HashMap<T, U>,
+    map2: &HashMap<T, V>,
+) -> bool {
+    map1.len() == map2.len() && map1.keys().all(|k| map2.contains_key(k))
+}
+
+impl Eq for Budget {}
+
+impl PartialEq for Budget {
+    fn eq(&self, other: &Self) -> bool {
+        self.filed_as == other.filed_as &&
+            keys_match(&self.categories, &other.categories)
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.filed_as != other.filed_as ||
+            !(keys_match(&self.categories, &other.categories))
+    }
+}
+
 impl Budget {
-    pub(crate) fn find_category_by_name(&mut self, category_name: &str) -> &mut ExpenseCategory {
+    /// Create new Budget name and expense categories in a vector of tuples
+    /// # Arguments
+    /// * filed_as: Name of the budget
+    /// * expense_categories: Provide a list of expense categories and max_budget of each categories
+    pub fn new_from_list(filed_as: &str, expense_categories: Vec<(&str, i32)>) -> Budget {
+        let mut categories = HashMap::new();
+        for expense_category in expense_categories {
+            categories.insert(expense_category.0.to_string(),
+                              ExpenseCategory::with_max_budget(
+                                  expense_category.0,
+                                  expense_category.1,
+                              ),
+            );
+        }
+        Budget {
+            categories,
+            filed_as: filed_as.to_string(),
+        }
+    }
+
+    pub fn find_category_by_name(&mut self, category_name: &str) -> &mut ExpenseCategory {
         self.categories
             .entry(category_name.to_string())
             .or_insert(ExpenseCategory::new(category_name))
     }
 
-    pub(crate) fn add_expense(&mut self, expense_category: &str, amount_spent: i32) {
+    pub fn add_expense(&mut self, expense_category: &str, amount_spent: i32) {
         self.find_category_by_name(expense_category)
             .add_expense(amount_spent);
     }
 
-    pub(crate) fn total_balance(&self) -> i32 {
+    pub fn total_balance(&self) -> i32 {
         self.categories.iter().map(|(c, x)| x.available()).sum::<i32>()
     }
 
@@ -40,6 +84,17 @@ pub mod tests {
         categories.insert("Bills".to_string(), ExpenseCategory::with_max_budget("Bills", 2000));
         categories.insert("Travel".to_string(), ExpenseCategory::with_max_budget("Travel", 3000));
         Budget::new("main", categories)
+    }
+
+    #[test]
+    fn make_new_budget_constructor() {
+        let budget = Budget::new_from_list(
+            "main",
+            vec![
+                ("Bills", 2000),
+                ("Travel", 3000)
+            ]);
+        assert_eq!(budget, new_budget());
     }
 
     #[test]

@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct ExpenseCategory {
     name: String,
     max_budget: i32,
