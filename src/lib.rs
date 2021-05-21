@@ -9,3 +9,11 @@
 pub mod budgeting;
 use budgeting::budget::Budget;
 use budgeting::expense_category::ExpenseCategory;
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+}

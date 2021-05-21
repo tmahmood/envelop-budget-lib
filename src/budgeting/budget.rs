@@ -36,7 +36,7 @@ impl Budget {
     /// # Arguments
     /// * filed_as: Name of the budget
     /// * expense_categories: Provide a list of expense categories and max_budget of each categories
-    pub fn new_from_list(filed_as: &str, expense_categories: Vec<(&str, i32)>) -> Budget {
+    pub fn new_from_list(filed_as: &str, expense_categories: Vec<(&str, f32)>) -> Budget {
         let mut categories = HashMap::new();
         for expense_category in expense_categories {
             categories.insert(expense_category.0.to_string(),
@@ -58,13 +58,13 @@ impl Budget {
             .or_insert(ExpenseCategory::new(category_name))
     }
 
-    pub fn add_expense(&mut self, expense_category: &str, amount_spent: i32) {
+    pub fn add_expense(&mut self, expense_category: &str, amount_spent: f32) {
         self.find_category_by_name(expense_category)
             .add_expense(amount_spent);
     }
 
-    pub fn total_balance(&self) -> i32 {
-        self.categories.iter().map(|(c, x)| x.available()).sum::<i32>()
+    pub fn total_balance(&self) -> f32 {
+        self.categories.iter().map(|(c, x)| x.available()).sum::<f32>()
     }
 
     pub fn new(filed_as: &str, categories: HashMap<String, ExpenseCategory>) -> Budget {
@@ -73,6 +73,7 @@ impl Budget {
             filed_as: filed_as.to_string(),
         }
     }
+
 }
 
 #[cfg(test)]
@@ -81,8 +82,8 @@ pub mod tests {
 
     fn new_budget() -> Budget {
         let mut categories = HashMap::new();
-        categories.insert("Bills".to_string(), ExpenseCategory::with_max_budget("Bills", 2000));
-        categories.insert("Travel".to_string(), ExpenseCategory::with_max_budget("Travel", 3000));
+        categories.insert("Bills".to_string(), ExpenseCategory::with_max_budget("Bills", 2000.0));
+        categories.insert("Travel".to_string(), ExpenseCategory::with_max_budget("Travel", 3000.0));
         Budget::new("main", categories)
     }
 
@@ -91,8 +92,8 @@ pub mod tests {
         let budget = Budget::new_from_list(
             "main",
             vec![
-                ("Bills", 2000),
-                ("Travel", 3000)
+                ("Bills", 2000.0),
+                ("Travel", 3000.0)
             ]);
         assert_eq!(budget, new_budget());
     }
@@ -100,20 +101,20 @@ pub mod tests {
     #[test]
     pub fn make_new_budget() {
         let budget = new_budget();
-        assert_eq!(budget.total_balance(), 5000);
+        assert_eq!(budget.total_balance(), 5000.0);
     }
 
     #[test]
-    fn finding_budget_from_list() {
+    fn finding_category_in_budget() {
         let mut budget = new_budget();
         let bills = budget.find_category_by_name("Bills");
-        assert_eq!(bills.available(), 2000);
+        assert_eq!(bills.available(), 2000.0);
     }
 
     #[test]
     pub fn spending_from_category() {
         let mut budget = new_budget();
-        budget.add_expense("Bills", 2000);
-        assert_eq!(budget.total_balance(), 3000);
+        budget.add_expense("Bills", 2000.0);
+        assert_eq!(budget.total_balance(), 3000.0);
     }
 }
