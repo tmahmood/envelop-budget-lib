@@ -8,6 +8,7 @@ use crate::budgeting::expense_category::ExpenseCategory;
 pub struct Budget {
     categories: HashMap<String, ExpenseCategory>,
     filed_as: String,
+    initial_balance: f32,
 }
 
 fn keys_match<T: Eq + Hash, U, V>(
@@ -36,19 +37,19 @@ impl Budget {
     /// # Arguments
     /// * filed_as: Name of the budget
     /// * expense_categories: Provide a list of expense categories and max_budget of each categories
-    pub fn new_from_list(filed_as: &str, expense_categories: Vec<(&str, f32)>) -> Budget {
+    pub fn new_from_list(filed_as: &str, initial_balance: f32, expense_categories: Vec<(&str, f32)>) -> Budget {
         let mut categories = HashMap::new();
         for expense_category in expense_categories {
             categories.insert(expense_category.0.to_string(),
-                              ExpenseCategory::with_max_budget(
+                              ExpenseCategory::new_with_max_budget(
                                   expense_category.0,
                                   expense_category.1,
-                              ),
-            );
+                              ));
         }
         Budget {
             categories,
             filed_as: filed_as.to_string(),
+            initial_balance
         }
     }
 
@@ -64,12 +65,14 @@ impl Budget {
     }
 
     pub fn total_balance(&self) -> f32 {
-        self.categories.iter().map(|(c, x)| x.available()).sum::<f32>()
+        self.categories.iter()
+            .map(|(c, x)| x.available()).sum::<f32>()
     }
 
-    pub fn new(filed_as: &str, categories: HashMap<String, ExpenseCategory>) -> Budget {
+    pub fn new(filed_as: &str, initial_balance: f32, categories: HashMap<String, ExpenseCategory>) -> Budget {
         Budget {
             categories,
+            initial_balance,
             filed_as: filed_as.to_string(),
         }
     }
@@ -82,15 +85,18 @@ pub mod tests {
 
     fn new_budget() -> Budget {
         let mut categories = HashMap::new();
-        categories.insert("Bills".to_string(), ExpenseCategory::with_max_budget("Bills", 2000.0));
-        categories.insert("Travel".to_string(), ExpenseCategory::with_max_budget("Travel", 3000.0));
-        Budget::new("main", categories)
+        categories.insert("Bills".to_string(), ExpenseCategory::new_with_max_budget("Bills", 2000.0));
+        categories.insert("Travel".to_string(), ExpenseCategory::new_with_max_budget("Travel", 3000.0));
+        Budget::new(
+            "main", 10000.0,
+            categories)
     }
 
     #[test]
     fn make_new_budget_constructor() {
         let budget = Budget::new_from_list(
             "main",
+            10000.0,
             vec![
                 ("Bills", 2000.0),
                 ("Travel", 3000.0)

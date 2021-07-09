@@ -1,0 +1,18 @@
+name: budget_tracker
+version: "1.0"
+author: Tarin M. <mahmood.tarin@gmail.com>
+about: Envelop Budget Tracker
+subcommands:
+  - spent:
+      about: if you want have spent money
+      args:
+        - category:
+            short: c
+            long: category
+            about: category of the expenditure
+            takes_value: true
+        - amount:
+            short: a
+            long: amount
+            about: how much money you spent
+            takes_value: true

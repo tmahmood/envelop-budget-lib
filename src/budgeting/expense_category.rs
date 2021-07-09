@@ -8,15 +8,6 @@ pub struct ExpenseCategory {
 }
 
 impl ExpenseCategory {
-    pub(crate) fn parse_string(str_to_conv: String) -> ExpenseCategory {
-        let mut a = ExpenseCategory::with_max_budget("books", 3200.0);
-        a.add_expense(200.0);
-        a.add_expense(3000.0);
-        a
-    }
-}
-
-impl ExpenseCategory {
 
     pub fn take_from(&mut self, src: &mut ExpenseCategory, amount: f32) -> &mut Self {
         src.add_expense(amount.into());
@@ -28,7 +19,7 @@ impl ExpenseCategory {
         self
     }
 
-    pub fn with_max_budget(name: &str, max_budget: f32) -> Self {
+    pub fn new_with_max_budget(name: &str, max_budget: f32) -> Self {
         ExpenseCategory {
             name: name.to_string(),
             max_budget,
@@ -87,7 +78,7 @@ mod tests {
 
     #[test]
     fn create_expense_category_with_max_budget() {
-        let mut a = ExpenseCategory::with_max_budget("Others", 1000.0);
+        let mut a = ExpenseCategory::new_with_max_budget("Others", 1000.0);
         assert_eq!(1000.0, a.available());
     }
 
