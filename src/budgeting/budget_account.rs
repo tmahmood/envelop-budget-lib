@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::hash::Hash;
+use serde::{Deserialize, Serialize};
 
 use crate::budgeting::expense_category::ExpenseCategory;
 
 /// Budget is used to store all the expense categories and store their details in a file
-#[derive(Debug)]
-pub struct Budget {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BudgetAccount {
     categories: HashMap<String, ExpenseCategory>,
     filed_as: String,
     initial_balance: f32,
@@ -18,9 +19,9 @@ fn keys_match<T: Eq + Hash, U, V>(
     map1.len() == map2.len() && map1.keys().all(|k| map2.contains_key(k))
 }
 
-impl Eq for Budget {}
+impl Eq for BudgetAccount {}
 
-impl PartialEq for Budget {
+impl PartialEq for BudgetAccount {
     fn eq(&self, other: &Self) -> bool {
         self.filed_as == other.filed_as &&
             keys_match(&self.categories, &other.categories)
@@ -32,24 +33,24 @@ impl PartialEq for Budget {
     }
 }
 
-impl Budget {
+impl BudgetAccount {
     /// Create new Budget name and expense categories in a vector of tuples
     /// # Arguments
     /// * filed_as: Name of the budget
     /// * expense_categories: Provide a list of expense categories and max_budget of each categories
-    pub fn new_from_list(filed_as: &str, initial_balance: f32, expense_categories: Vec<(&str, f32)>) -> Budget {
-        let mut categories = HashMap::new();
-        for expense_category in expense_categories {
-            categories.insert(expense_category.0.to_string(),
-                              ExpenseCategory::new_with_max_budget(
+    pub fn new_with_category_list(filed_as: &str, initial_balance: f32, categories: Vec<(&str, f32)>) -> BudgetAccount {
+        let mut proc_categories = HashMap::new();
+        for expense_category in categories {
+            proc_categories.insert(expense_category.0.to_string(),
+                                   ExpenseCategory::new_with_max_budget(
                                   expense_category.0,
                                   expense_category.1,
                               ));
         }
-        Budget {
-            categories,
+        BudgetAccount {
+            categories: proc_categories,
             filed_as: filed_as.to_string(),
-            initial_balance
+            initial_balance,
         }
     }
 
@@ -69,49 +70,53 @@ impl Budget {
             .map(|(c, x)| x.available()).sum::<f32>()
     }
 
-    pub fn new(filed_as: &str, initial_balance: f32, categories: HashMap<String, ExpenseCategory>) -> Budget {
-        Budget {
+    pub fn new(filed_as: &str, initial_balance: f32, categories: HashMap<String, ExpenseCategory>) -> BudgetAccount {
+        BudgetAccount {
             categories,
             initial_balance,
             filed_as: filed_as.to_string(),
         }
     }
-
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
 
-    fn new_budget() -> Budget {
+    fn new_budget() -> BudgetAccount {
         let mut categories = HashMap::new();
         categories.insert("Bills".to_string(), ExpenseCategory::new_with_max_budget("Bills", 2000.0));
         categories.insert("Travel".to_string(), ExpenseCategory::new_with_max_budget("Travel", 3000.0));
-        Budget::new(
-            "main", 10000.0,
-            categories)
+        BudgetAccount::new("main", 10000.0, categories)
     }
 
     #[test]
-    fn make_new_budget_constructor() {
-        let budget = Budget::new_from_list(
+    fn create_new_budget_account_and_assign_categories_from_a_list() {
+        let budget = BudgetAccount::new_with_category_list(
             "main",
             10000.0,
             vec![
                 ("Bills", 2000.0),
-                ("Travel", 3000.0)
+                ("Travel", 3000.0),
             ]);
         assert_eq!(budget, new_budget());
     }
 
     #[test]
-    pub fn make_new_budget() {
+    fn make_json_file_from_budget() {
+        let mut budget = new_budget();
+        let result = serde_json::to_string(&budget);
+        assert_eq!(r#"{"categories":{"Bills":{"name":"Bills","max_budget":2000.0,"transactions":[]},"Travel":{"name":"Travel","max_budget":3000.0,"transactions":[]}},"filed_as":"main","initial_balance":10000.0}"#, result.unwrap());
+    }
+
+    #[test]
+    pub fn check_actual_total_balance() {
         let budget = new_budget();
         assert_eq!(budget.total_balance(), 5000.0);
     }
 
     #[test]
-    fn finding_category_in_budget() {
+    fn finding_category_by_name_in_budget_account() {
         let mut budget = new_budget();
         let bills = budget.find_category_by_name("Bills");
         assert_eq!(bills.available(), 2000.0);
@@ -121,6 +126,8 @@ pub mod tests {
     pub fn spending_from_category() {
         let mut budget = new_budget();
         budget.add_expense("Bills", 2000.0);
+        let bills = budget.find_category_by_name("Bills");
+        assert_eq!(bills.available(), 0.0);
         assert_eq!(budget.total_balance(), 3000.0);
     }
 }

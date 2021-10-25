@@ -1,6 +1,7 @@
 use crate::budgeting::transaction::Transaction;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialOrd, PartialEq)]
+#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct ExpenseCategory {
     name: String,
     max_budget: f32,
@@ -69,7 +70,7 @@ mod tests {
     use crate::budgeting::expense_category::ExpenseCategory;
 
     #[test]
-    fn get_name() {
+    fn get_expense_category_name() {
         let e = ExpenseCategory::new("Some name");
         assert_eq!(
             e.get_name(), "Some name"
