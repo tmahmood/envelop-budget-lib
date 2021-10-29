@@ -4,11 +4,18 @@ use gtk::prelude::*;
 use adw::prelude::*;
 
 use adw::{ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
-use gtk::{Box, ListBox, Orientation, Button, Application, ApplicationWindow, StackPage, Stack};
+use gtk::{Box, ListBox, Orientation, Button, Application, ApplicationWindow, StackPage, Stack, glib};
+use gtk::glib::Object;
 // use adw::{ActionRow, HeaderBar, ApplicationWindow};
 // use gtk::{Box, ListBox, Orientation, Button, Application};
 
 use budget_manager::budgeting::budget_account::BudgetAccount;
+use crate::window::Window;
+
+mod window;
+mod transaction_row;
+mod transaction_object;
+
 
 
 fn main() {
@@ -23,33 +30,6 @@ fn main() {
 }
 
 fn build_ui(app: &Application) {
-
-    let builder = gtk::Builder::from_string(include_str!("../resources/main_window.ui"));
-
-    let window: ApplicationWindow = builder.object("window").expect("Couldn't get window");
-    // let button: Button = builder.object("button").expect("Couldn't get button");
-    // let list: ListBox = builder.object("list").expect("Couldn't get list");
-    // let row1: ActionRow = builder.object("row1").expect("Couldn't get action row");
-    // let row2: ActionRow = builder.object("row2").expect("Couldn't get action row");
-
-    window.set_application(Some(app));
-
-
-    // row1.connect_activated(|_| {
-    //     eprintln!("Clicked!");
-    // });
-
-    // row2.connect_activated(|_| {
-    //     eprintln!("Other row Clicked!");
-    // });
-
-    // list.set_css_classes(&["content"]);
-
-    // // Connect to "clicked" signal of `button`
-    // button.connect_clicked(move |button| {
-    //     // Set the label to "Hello World!" after the button has been clicked on
-    //     button.set_label("Hello World!");
-    // });
-
-    window.show();
+    let window = Window::new(app);
+    window.present();
 }
