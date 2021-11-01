@@ -1,7 +1,7 @@
 use crate::budgeting::transaction::Transaction;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default)]
 pub struct ExpenseCategory {
     name: String,
     max_budget: f32,
@@ -34,6 +34,12 @@ impl ExpenseCategory {
             max_budget: 0.0,
             transactions: Vec::new(),
         }
+    }
+
+    pub fn set_name(&mut self, name: &str) -> &mut Self {
+        self.name = name.to_string();
+        self
+
     }
 
     pub fn get_name(&self) -> String {

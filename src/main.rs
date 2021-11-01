@@ -13,9 +13,8 @@ use budget_manager::budgeting::budget_account::BudgetAccount;
 use crate::window::Window;
 
 mod window;
-mod transaction_row;
-mod transaction_object;
-
+mod transaction;
+mod expense_category;
 
 
 fn main() {

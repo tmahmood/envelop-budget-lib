@@ -1,4 +1,4 @@
-mod imp;
+pub mod imp;
 use gtk::glib::Object;
 use gtk::glib;
 

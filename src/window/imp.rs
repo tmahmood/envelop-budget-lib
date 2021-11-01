@@ -21,10 +21,16 @@ pub struct Window {
     #[template_child]
     pub entry: TemplateChild<Entry>,
     #[template_child]
+    pub expense_category_entry: TemplateChild<Entry>,
+    #[template_child]
     pub button: TemplateChild<Button>,
     #[template_child]
     pub list_view: TemplateChild<ListView>,
+    #[template_child]
+    pub expense_category_list_view: TemplateChild<ListView>,
+
     pub model: OnceCell<gio::ListStore>,
+    pub model_expense_categories: OnceCell<gio::ListStore>
 }
 
 
@@ -53,7 +59,6 @@ impl ObjectImpl for Window {
         obj.setup_model();
         obj.setup_callbacks();
         obj.setup_factory();
-
     }
 }
 

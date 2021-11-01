@@ -1,11 +1,11 @@
 mod imp;
 
-use crate::transaction_object::TransactionObject;
 use glib::{BindingFlags, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
 use pango::{AttrList, Attribute};
+use crate::transaction::transaction_object::TransactionObject;
 
 
 glib::wrapper! {
@@ -28,26 +28,26 @@ impl TransactionRow {
     pub fn bind(&self, transaction_object: &TransactionObject) {
         // Get state
         let imp = imp::TransactionRow::from_instance(self);
+        let transaction_row = imp.data_row.get();
         let note_label = imp.note_label.get();
         let amount_label = imp.amount_label.get();
         let mut bindings = imp.bindings.borrow_mut();
 
-        let note_label_binding = transaction_object
-            .bind_property("note", &note_label, "label")
+        let data_row_binding = transaction_object
+            .bind_property("note", &transaction_row, "title")
             .flags(BindingFlags::SYNC_CREATE | BindingFlags::BIDIRECTIONAL)
             .build()
             .expect("Could not bind properties");
         // Save binding
-        bindings.push(note_label_binding);
+        bindings.push(data_row_binding);
 
-        // Bind `todo_object.content` to `todo_row.content_label.label`
-        let amount_label_binding = transaction_object
-            .bind_property("amount", &amount_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
+        let data_row_binding = transaction_object
+            .bind_property("amount", &note_label, "label")
+            .flags(BindingFlags::SYNC_CREATE | BindingFlags::BIDIRECTIONAL)
             .build()
             .expect("Could not bind properties");
         // Save binding
-        bindings.push(amount_label_binding);
+        bindings.push(data_row_binding);
     }
 
     pub fn unbind(&self) {
