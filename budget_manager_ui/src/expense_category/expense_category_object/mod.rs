@@ -8,11 +8,9 @@ glib::wrapper! {
 
 impl ExpenseCategoryObject {
     pub fn new(name: String, max_budget: f32) -> Self {
-        Object::new(
-            &[
-                ("name", &name),
-                ("maxbudget", &max_budget)
-            ])
-            .expect("Failed to create `Expense Category Object`.")
+        Object::builder()
+            .property("name", &name)
+            .property("maxbudget", &max_budget)
+            .build()
     }
 }

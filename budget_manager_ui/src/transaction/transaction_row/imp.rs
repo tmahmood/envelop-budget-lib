@@ -14,7 +14,7 @@ pub struct TransactionRow {
     #[template_child]
     pub note_label: TemplateChild<Label>,
     #[template_child]
-    pub amount_label: TemplateChild<Label>,
+    pub payee_label: TemplateChild<Label>,
     // Vector holding the bindings to properties of `TodoObject`
     pub bindings: RefCell<Vec<Binding>>,
 }

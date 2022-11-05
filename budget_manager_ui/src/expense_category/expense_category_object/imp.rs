@@ -4,8 +4,10 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
+use adw::glib::ParamSpecFloat;
 use gtk::glib::once_cell::sync::Lazy;
 use budget_manager::budgeting::expense_category::ExpenseCategory;
+use crate::glib::ParamSpecString;
 
 // Object holding the state
 #[derive(Default)]
@@ -26,28 +28,18 @@ impl ObjectImpl for ExpenseCategoryObject {
     fn properties() -> &'static [ParamSpec] {
         static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
             vec![
-                ParamSpec::new_string(
-                    "name",
-                    "name",
-                    "name",
-                    None,
-                    ParamFlags::READWRITE,
-                ),
-                ParamSpec::new_float(
-                    "maxbudget",
-                    "maxbudget",
-                    "maxbudget",
-                    0.0,
-                    99999999.99,
-                    0.0,
-                    ParamFlags::READWRITE,
-                ),
+                ParamSpecString::builder("name").default_value(None).build(),
+                ParamSpecFloat::builder("maxbudget")
+                    .minimum(0.0)
+                    .maximum(9999999.99)
+                    .default_value(0.0)
+                    .build(),
             ]
         });
         PROPERTIES.as_ref()
     }
 
-    fn set_property(&self, _obj: &Self::Type, _id: usize, value: &Value, pspec: &ParamSpec) {
+    fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
         match pspec.name() {
             "name" => {
                 let input_value = value.get().expect("The value needs to be of type `string`.");
@@ -63,7 +55,7 @@ impl ObjectImpl for ExpenseCategoryObject {
         }
     }
 
-    fn property(&self, _obj: &Self::Type, _id: usize, pspec: &ParamSpec) -> Value {
+    fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
             "name" => self.data.borrow().get_name().to_value(),
             "maxbudget" => self.data.borrow().get_max_budget().to_value(),

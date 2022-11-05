@@ -19,7 +19,9 @@ use budget_manager::budgeting::transaction::Transaction;
 #[template(file="../../resources/main_window.ui")]
 pub struct Window {
     #[template_child]
-    pub entry: TemplateChild<Entry>,
+    pub budget_balance: TemplateChild<Entry>,
+    #[template_child]
+    pub transaction_entry: TemplateChild<Entry>,
     #[template_child]
     pub expense_category_entry: TemplateChild<Entry>,
     #[template_child]
@@ -28,7 +30,6 @@ pub struct Window {
     pub list_view: TemplateChild<ListView>,
     #[template_child]
     pub expense_category_list_view: TemplateChild<ListView>,
-
     pub model: OnceCell<gio::ListStore>,
     pub model_expense_categories: OnceCell<gio::ListStore>
 }
@@ -52,10 +53,11 @@ impl ObjectSubclass for Window {
 }
 
 impl ObjectImpl for Window {
-    fn constructed(&self, obj: &Self::Type) {
-        self.parent_constructed(obj);
+    fn constructed(&self) {
+        self.parent_constructed();
 
         // Setup
+        let obj = self.obj();
         obj.setup_model();
         obj.setup_callbacks();
         obj.setup_factory();

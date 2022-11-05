@@ -83,8 +83,6 @@
                                 <property name="name">page3</property>
                                 <property name="title" translatable="yes">Transactions</property>
                                 <property name="icon-name">clock-stopwatch-symbolic</property>
-                                <property name="badge-number">3</property>
-                                <property name="needs-attention">true</property>
                                 <property name="child">
                                     <object class="GtkBox">
                                         <property name="margin-top">24</property>
@@ -92,6 +90,7 @@
                                         <property name="margin-start">24</property>
                                         <property name="margin-end">24</property>
                                         <property name="orientation">vertical</property>
+                                        <property name="hexpand">true</property>
                                         <child>
                                             <object class="GtkBox">
                                                 <property name="orientation">vertical</property>
@@ -100,18 +99,19 @@
                                                 <property name="margin-start">12</property>
                                                 <property name="margin-end">12</property>
                                                 <property name="spacing">6</property>
+                                                <property name="hexpand">true</property>
                                                 <child>
-                                                    <object class="GtkEntry" id="entry"/>
+                                                    <object class="GtkEntry" id="transaction_entry"/>
                                                 </child>
                                                 <child>
                                                     <object class="GtkScrolledWindow">
                                                         <property name="hscrollbar-policy">never</property>
                                                         <property name="min-content-height">360</property>
-                                                        <property name="vexpand">true</property>
+                                                        <property name="hexpand">true</property>
                                                         <child>
                                                             <object class="GtkListView" id="list_view">
                                                                 <style>
-                                                                    <class name="content"/>
+                                                                    <class name="boxed-list" />
                                                                 </style>
                                                             </object>
                                                         </child>
@@ -139,81 +139,10 @@
                                             <object class="AdwPreferencesGroup">
                                                 <child>
                                                     <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">Text</property>
+                                                        <property name="title" translatable="yes">Current Balance</property>
                                                         <child>
-                                                            <object class="GtkEntry" id="avatar_text">
+                                                            <object class="GtkEntry" id="budget_balance">
                                                                 <property name="valign">center</property>
-                                                            </object>
-                                                        </child>
-                                                    </object>
-                                                </child>
-                                                <child>
-                                                    <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">Show initials
-                                                        </property>
-                                                        <property name="activatable_widget">avatar_show_initials
-                                                        </property>
-                                                        <child>
-                                                            <object class="GtkSwitch" id="avatar_show_initials">
-                                                                <property name="valign">center</property>
-                                                                <property name="state">True</property>
-                                                            </object>
-                                                        </child>
-                                                    </object>
-                                                </child>
-                                                <child>
-                                                    <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">File</property>
-                                                        <child>
-                                                            <object class="GtkButton">
-                                                                <property name="valign">center</property>
-                                                                <child>
-                                                                    <object class="GtkLabel" id="avatar_file_chooser_label">
-                                                                        <property name="ellipsize">middle</property>
-                                                                        <property name="max-width-chars">20</property>
-                                                                    </object>
-                                                                </child>
-                                                                <style>
-                                                                    <class name="text-button"/>
-                                                                    <class name="outline"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
-                                                        <child>
-                                                            <object class="GtkButton" id="avatar_remove_button">
-                                                                <property name="valign">center</property>
-                                                                <property name="icon_name">avatar-delete-symbolic</property>
-                                                                <style>
-                                                                    <class name="outline"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
-                                                    </object>
-                                                </child>
-                                                <child>
-                                                    <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">Size</property>
-                                                        <child>
-                                                            <object class="GtkSpinButton" id="avatar_size">
-                                                                <property name="valign">center</property>
-                                                                <property name="numeric">True</property>
-                                                                <property name="adjustment">avatar_adjustment</property>
-                                                            </object>
-                                                        </child>
-                                                    </object>
-                                                </child>
-                                                <child>
-                                                    <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">Export to file
-                                                        </property>
-                                                        <child>
-                                                            <object class="GtkButton" id="avatar_save_file">
-                                                                <property name="valign">center</property>
-                                                                <property name="icon_name">avatar-save-symbolic
-                                                                </property>
-                                                                <style>
-                                                                    <class name="outline"/>
-                                                                </style>
                                                             </object>
                                                         </child>
                                                     </object>

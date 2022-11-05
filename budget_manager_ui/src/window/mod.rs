@@ -1,6 +1,7 @@
 mod imp;
 
-use gtk::{Application, glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView};
+use adw::Application;
+use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView};
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -20,7 +21,7 @@ pub fn callback(entry: Entry) {}
 
 impl Window {
     pub fn new(app: &Application) -> Self {
-        Object::new(&[("application", app)]).expect("Failed to create window")
+        Object::builder().property("application", app).build()
     }
 
     fn model(&self) -> &gio::ListStore {
@@ -36,20 +37,13 @@ impl Window {
     }
 
     fn setup_model(&self) {
-        // Create new model
         let model = gio::ListStore::new(TransactionObject::static_type());
-        // Get state and set model
         let imp = imp::Window::from_instance(self);
         imp.model.set(model).expect("Could not set model");
-        // Wrap model with selection and pass it to the list view
         let selection_model = NoSelection::new(Some(self.model()));
         imp.list_view.set_model(Some(&selection_model));
-
-        // setup expense category model
         let model_ec = gio::ListStore::new(ExpenseCategoryObject::static_type());
-        // Get state and set model
         imp.model_expense_categories.set(model_ec).expect("Could not set model");
-        // Wrap model with selection and pass it to the list view
         let selection_model = NoSelection::new(Some(self.expense_category_model()));
         imp.expense_category_list_view.set_model(Some(&selection_model));
     }
@@ -57,14 +51,15 @@ impl Window {
     fn setup_callbacks(&self) {
         let imp = imp::Window::from_instance(self);
         let model = self.model();
-        imp.entry.connect_activate(clone!(@weak model => move |entry| {
+        imp.transaction_entry.connect_activate(clone!(@weak model => move |entry| {
             let buffer = entry.buffer();
             let content = buffer.text();
             let mut splited = str::split(&content, '#');
+            let payee = splited.next().unwrap().trim().to_string();
             let note = splited.next().unwrap().trim().to_string();
             let amount = splited.next().unwrap().trim().parse::<f32>().unwrap();
 
-            let transaction_object = TransactionObject::new(note, amount);
+            let transaction_object = TransactionObject::new(payee, note, amount);
             model.append(&transaction_object);
             buffer.set_text("");
         }));

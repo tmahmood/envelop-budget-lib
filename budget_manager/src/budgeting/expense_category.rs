@@ -16,7 +16,7 @@ impl ExpenseCategory {
     }
 
     pub fn add_fund(&mut self, amount: f32) -> &mut Self {
-        self.transactions.push(Transaction::new("not defined", amount));
+        self.transactions.push(Transaction::new("", "not defined", amount));
         self
     }
 
@@ -57,9 +57,10 @@ impl ExpenseCategory {
 
     pub fn add_expense(&mut self, amount: f32) -> &mut Self {
         self.transactions.push(Transaction::new(
+            "",
             "undefined",
             -1.0 * amount
-            )
+        )
         );
         self
     }
@@ -110,11 +111,11 @@ mod tests {
 
     #[test]
     fn spending_from_category() {
-        assert_eq!(ExpenseCategory::new("Bills")
-                       .set_max_budget(5000.0)
+        assert_eq!(ExpenseCategory::new("Bills").set_max_budget(5000.0)
                        .add_expense(3000.0)
                        .available(),
                    2000.0);
+
     }
 
     #[test]

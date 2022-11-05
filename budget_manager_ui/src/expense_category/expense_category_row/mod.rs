@@ -22,7 +22,7 @@ impl Default for ExpenseCategoryRow {
 
 impl ExpenseCategoryRow {
     pub fn new() -> Self {
-        Object::new(&[]).expect("Failed to create `ExpenseCategoryRow`.")
+        Object::builder().build()
     }
 
     pub fn bind(&self, expense_category_object: &ExpenseCategoryObject) {
@@ -36,16 +36,14 @@ impl ExpenseCategoryRow {
         let data_row_binding = expense_category_object
             .bind_property("name", &expense_category_row, "title")
             .flags(BindingFlags::SYNC_CREATE | BindingFlags::BIDIRECTIONAL)
-            .build()
-            .expect("Could not bind properties");
+            .build();
         // Save binding
         bindings.push(data_row_binding);
 
         let data_row_binding = expense_category_object
             .bind_property("maxbudget", &name_label, "label")
             .flags(BindingFlags::SYNC_CREATE | BindingFlags::BIDIRECTIONAL)
-            .build()
-            .expect("Could not bind properties");
+            .build();
         // Save binding
         bindings.push(data_row_binding);
     }
