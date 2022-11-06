@@ -9,13 +9,16 @@ use adw::ActionRow;
 #[derive(Default, CompositeTemplate)]
 #[template(file = "../../../resources/transaction_row.ui")]
 pub struct TransactionRow {
-    #[template_child]
-    pub data_row: TemplateChild<ActionRow>,
+
     #[template_child]
     pub note_label: TemplateChild<Label>,
+
     #[template_child]
     pub payee_label: TemplateChild<Label>,
-    // Vector holding the bindings to properties of `TodoObject`
+
+    #[template_child]
+    pub amount_label: TemplateChild<Label>,
+    // Vector holding the bindings to properties of `TransactionObject`
     pub bindings: RefCell<Vec<Binding>>,
 }
 

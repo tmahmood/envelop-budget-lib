@@ -19,7 +19,6 @@ pub struct TransactionObject {
 impl ObjectSubclass for TransactionObject {
     const NAME: &'static str = "TransactionObject";
     type Type = super::TransactionObject;
-    type ParentType = glib::Object;
 }
 
 // Trait shared by all GObjects

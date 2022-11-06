@@ -6,7 +6,8 @@ use budget_manager;
 
 
 use adw::{Application, ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
-use gtk::{Box, ListBox, Orientation, Button, ApplicationWindow, StackPage, Stack, glib};
+use adw::gdk::Display;
+use gtk::{Box, ListBox, Orientation, Button, ApplicationWindow, StackPage, Stack, glib, CssProvider, StyleContext};
 use gtk::glib::Object;
 // use adw::{ActionRow, HeaderBar, ApplicationWindow};
 // use gtk::{Box, ListBox, Orientation, Button, Application};
@@ -23,14 +24,12 @@ fn main() {
     let application = Application::builder()
         .application_id("com.gtk.budgetTracker")
         .build();
-    application.connect_startup(|_| {
-        adw::init().expect("Failed to init");
-    });
     application.connect_activate(build_ui);
     application.run();
 }
 
+
 fn build_ui(app: &Application) {
-    let window = Window::new(app);
-    window.present();
+    let mut window = Window::new(app);
+    window.show();
 }

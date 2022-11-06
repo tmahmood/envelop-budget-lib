@@ -1,175 +1,160 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.22.0 -->
 <interface>
-    <requires lib="gtk" version="4.0"/>
-    <requires lib="libadwaita" version="1.0"/>
+    <menu id="main-menu">
+        <submenu>
+            <attribute name="label" translatable="yes">_Filter</attribute>
+            <item>
+                <attribute name="label" translatable="yes">_All</attribute>
+                <attribute name="action">win.filter</attribute>
+                <attribute name="target">All</attribute>
+            </item>
+            <item>
+                <attribute name="label" translatable="yes">_Open</attribute>
+                <attribute name="action">win.filter</attribute>
+                <attribute name="target">Open</attribute>
+            </item>
+            <item>
+                <attribute name="label" translatable="yes">_Done</attribute>
+                <attribute name="action">win.filter</attribute>
+                <attribute name="target">Done</attribute>
+            </item>
+        </submenu>
+        <item>
+            <attribute name="label" translatable="yes">_Remove Done Tasks</attribute>
+            <attribute name="action">win.remove-done-tasks</attribute>
+        </item>
+        <item>
+            <attribute name="label" translatable="yes">_Keyboard Shortcuts</attribute>
+            <attribute name="action">win.show-help-overlay</attribute>
+        </item>
+    </menu>
     <template class="BudgetAppWindow" parent="AdwApplicationWindow">
-        <property name="title" translatable="yes">Budget Tracker</property>
-        <child>
-            <object class="GtkBox">
-                <property name="orientation">vertical</property>
+        <property name="title" translatable="yes">To-Do</property>
+        <property name="default_width">650</property>
+        <property name="default_height">550</property>
+        <property name="content">
+            <object class="GtkStack" id="stack">
+                <property name="transition-type">crossfade</property>
                 <child>
-                    <object class="AdwHeaderBar">
-                        <property name="centering-policy">strict</property>
-                        <property name="title-widget">
-                            <object class="AdwViewSwitcherTitle" id="switcher_title">
-                                <property name="stack">stack</property>
-                                <property name="title" bind-source="BudgetAppWindow" bind-property="title"
-                                          bind-flags="sync-create"/>
-                            </object>
-                        </property>
-                        <child>
-                            <object class="GtkButton" id="button">
-                                <property name="label">Add Transaction</property>
-                            </object>
-                        </child>
-                    </object>
-                </child>
-                <child>
-                    <object class="AdwViewStack" id="stack">
-                        <property name="vexpand">True</property>
-                        <child>
-                            <object class="AdwViewStackPage">
-                                <property name="name">page1</property>
-                                <property name="title" translatable="yes">Report</property>
-                                <property name="icon-name">clock-world-symbolic</property>
-                                <property name="child">
-                                    <object class="GtkLabel">
-                                        <property name="margin-top">24</property>
-                                        <property name="margin-bottom">24</property>
-                                        <property name="margin-start">24</property>
-                                        <property name="margin-end">24</property>
-                                        <property name="label" translatable="yes">World</property>
-                                    </object>
-                                </property>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="AdwViewStackPage">
-                                <property name="name">page2</property>
-                                <property name="title" translatable="yes">Categories</property>
-                                <property name="icon-name">clock-alarm-symbolic</property>
-                                <property name="child">
-                                    <object class="GtkBox">
-                                        <property name="orientation">vertical</property>
-                                        <property name="margin-top">12</property>
-                                        <property name="margin-bottom">12</property>
-                                        <property name="margin-start">12</property>
-                                        <property name="margin-end">12</property>
-                                        <property name="spacing">6</property>
-                                        <child>
-                                            <object class="GtkEntry" id="expense_category_entry"/>
-                                        </child>
-                                        <child>
-                                            <object class="GtkScrolledWindow">
-                                                <property name="hscrollbar-policy">never</property>
-                                                <property name="min-content-height">360</property>
-                                                <property name="vexpand">true</property>
-                                                <child>
-                                                    <object class="GtkListView" id="expense_category_list_view">
-                                                        <style>
-                                                            <class name="content"/>
-                                                        </style>
-                                                    </object>
-                                                </child>
+                    <object class="GtkStackPage">
+                        <property name="name">main</property>
+                        <property name="child">
+                            <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <property name="hexpand">True</property>
+                                <property name="width-request">250</property>
+                                <child>
+                                    <object class="AdwHeaderBar">
+                                        <property name="title-widget">
+                                            <object class="AdwWindowTitle"/>
+                                        </property>
+                                        <child type="end">
+                                            <object class="GtkMenuButton">
+                                                <property name="icon-name">open-menu-symbolic</property>
+                                                <property name="menu-model">main-menu</property>
+                                                <property name="tooltip-text" translatable="yes">Main Menu</property>
                                             </object>
                                         </child>
                                     </object>
-                                </property>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="AdwViewStackPage">
-                                <property name="name">page3</property>
-                                <property name="title" translatable="yes">Transactions</property>
-                                <property name="icon-name">clock-stopwatch-symbolic</property>
-                                <property name="child">
-                                    <object class="GtkBox">
-                                        <property name="margin-top">24</property>
-                                        <property name="margin-bottom">24</property>
-                                        <property name="margin-start">24</property>
-                                        <property name="margin-end">24</property>
-                                        <property name="orientation">vertical</property>
-                                        <property name="hexpand">true</property>
-                                        <child>
+                                </child>
+                                <child>
+                                    <object class="GtkScrolledWindow">
+                                        <property name="vexpand">True</property>
+                                        <property name="child">
                                             <object class="GtkBox">
                                                 <property name="orientation">vertical</property>
                                                 <property name="margin-top">12</property>
                                                 <property name="margin-bottom">12</property>
                                                 <property name="margin-start">12</property>
                                                 <property name="margin-end">12</property>
-                                                <property name="spacing">6</property>
-                                                <property name="hexpand">true</property>
+                                                <property name="spacing">12</property>
                                                 <child>
-                                                    <object class="GtkEntry" id="transaction_entry"/>
+                                                    <object class="GtkEntry" id="expense_category_entry">
+                                                        <property name="placeholder-text" translatable="yes">
+                                                            Expense Category
+                                                        </property>
+                                                        <property name="secondary-icon-name">list-add-symbolic
+                                                        </property>
+                                                    </object>
                                                 </child>
                                                 <child>
-                                                    <object class="GtkScrolledWindow">
-                                                        <property name="hscrollbar-policy">never</property>
-                                                        <property name="min-content-height">360</property>
-                                                        <property name="hexpand">true</property>
+                                                    <object class="GtkEntry" id="budget_balance">
+                                                        <property name="placeholder-text" translatable="yes">
+                                                            Budget balance
+                                                        </property>
+                                                        <property name="secondary-icon-name">list-add-symbolic
+                                                        </property>
+                                                    </object>
+                                                </child>
+                                                <child>
+                                                    <object class="GtkBox">
+                                                        <property name="orientation">horizontal</property>
                                                         <child>
-                                                            <object class="GtkListView" id="list_view">
-                                                                <style>
-                                                                    <class name="boxed-list" />
-                                                                </style>
+                                                            <object class="GtkEntry" id="transaction_payee">
+                                                                <property name="placeholder-text"
+                                                                          translatable="yes">Payee
+                                                                </property>
+                                                                <property name="secondary-icon-name">
+                                                                    list-add-symbolic
+                                                                </property>
+                                                            </object>
+                                                        </child>
+                                                        <child>
+                                                            <object class="GtkEntry" id="transaction_note">
+                                                                <property name="placeholder-text"
+                                                                          translatable="yes">Note
+                                                                </property>
+                                                                <property name="secondary-icon-name">
+                                                                    list-add-symbolic
+                                                                </property>
+                                                            </object>
+                                                        </child>
+                                                        <child>
+                                                            <object class="GtkEntry" id="transaction_amount">
+                                                                <property name="placeholder-text"
+                                                                          translatable="yes">Amount
+                                                                </property>
+                                                                <property name="secondary-icon-name">
+                                                                    list-add-symbolic
+                                                                </property>
+                                                            </object>
+                                                        </child>
+                                                        <child>
+                                                            <object class="GtkButton"
+                                                                    id="add_transaction_details">
+                                                                <property name="label">Add transaction
+                                                                </property>
                                                             </object>
                                                         </child>
                                                     </object>
                                                 </child>
-                                            </object>
-                                        </child>
-                                    </object>
-                                </property>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="AdwViewStackPage">
-                                <property name="name">page4</property>
-                                <property name="title" translatable="yes">Budget Properties</property>
-                                <property name="icon-name">clock-timer-symbolic</property>
-                                <property name="child">
-                                    <object class="GtkBox" id="box">
-                                        <property name="margin-top">24</property>
-                                        <property name="margin-bottom">24</property>
-                                        <property name="margin-start">24</property>
-                                        <property name="margin-end">24</property>
-                                        <property name="orientation">vertical</property>
-                                        <child>
-                                            <object class="AdwPreferencesGroup">
                                                 <child>
-                                                    <object class="AdwActionRow">
-                                                        <property name="title" translatable="yes">Current Balance</property>
-                                                        <child>
-                                                            <object class="GtkEntry" id="budget_balance">
-                                                                <property name="valign">center</property>
-                                                            </object>
-                                                        </child>
+                                                    <object class="GtkListBox" id="transactions_list">
+                                                        <property name="visible">False</property>
+                                                        <property name="selection-mode">none</property>
+                                                        <style>
+                                                            <class name="boxed-list"/>
+                                                        </style>
+                                                    </object>
+                                                </child>
+                                                <child>
+                                                    <object class="GtkListBox" id="expense_category_list_view">
+                                                        <property name="visible">False</property>
+                                                        <property name="selection-mode">none</property>
+                                                        <style>
+                                                            <class name="boxed-list"/>
+                                                        </style>
                                                     </object>
                                                 </child>
                                             </object>
-                                        </child>
+                                        </property>
                                     </object>
-                                </property>
+                                </child>
                             </object>
-                        </child>
-                    </object>
-                </child>
-                <child>
-                    <object class="AdwViewSwitcherBar" id="switcher_bar">
-                        <property name="stack">stack</property>
-                        <property name="reveal" bind-source="switcher_title" bind-property="title-visible"
-                                  bind-flags="sync-create"/>
+                        </property>
                     </object>
                 </child>
             </object>
-        </child>
+        </property>
     </template>
-    <object class="GtkAdjustment" id="avatar_adjustment">
-        <property name="lower">24</property>
-        <property name="upper">320</property>
-        <property name="value">128</property>
-        <property name="page-increment">8</property>
-        <property name="step-increment">8</property>
-    </object>
 </interface>

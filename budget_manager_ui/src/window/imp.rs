@@ -20,18 +20,30 @@ use budget_manager::budgeting::transaction::Transaction;
 pub struct Window {
     #[template_child]
     pub budget_balance: TemplateChild<Entry>,
+
     #[template_child]
-    pub transaction_entry: TemplateChild<Entry>,
+    pub transaction_payee: TemplateChild<Entry>,
+
+    #[template_child]
+    pub transaction_note: TemplateChild<Entry>,
+
+    #[template_child]
+    pub transaction_amount: TemplateChild<Entry>,
+
     #[template_child]
     pub expense_category_entry: TemplateChild<Entry>,
+
     #[template_child]
-    pub button: TemplateChild<Button>,
+    pub add_transaction_details: TemplateChild<Button>,
+
     #[template_child]
-    pub list_view: TemplateChild<ListView>,
+    pub transactions_list: TemplateChild<ListBox>,
+
     #[template_child]
-    pub expense_category_list_view: TemplateChild<ListView>,
-    pub model: OnceCell<gio::ListStore>,
-    pub model_expense_categories: OnceCell<gio::ListStore>
+    pub expense_category_list_view: TemplateChild<ListBox>,
+
+    pub transactions: RefCell<Option<gio::ListStore>>,
+    pub expense_categories: RefCell<Option<gio::ListStore>>
 }
 
 
@@ -58,9 +70,8 @@ impl ObjectImpl for Window {
 
         // Setup
         let obj = self.obj();
-        obj.setup_model();
+        obj.setup_transactions();
         obj.setup_callbacks();
-        obj.setup_factory();
     }
 }
 
