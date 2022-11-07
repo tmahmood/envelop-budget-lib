@@ -18,20 +18,6 @@ use budget_manager::budgeting::transaction::Transaction;
 #[derive(CompositeTemplate, Default)]
 #[template(file="../../resources/main_window.ui")]
 pub struct Window {
-    #[template_child]
-    pub budget_balance: TemplateChild<Entry>,
-
-    #[template_child]
-    pub transaction_payee: TemplateChild<Entry>,
-
-    #[template_child]
-    pub transaction_note: TemplateChild<Entry>,
-
-    #[template_child]
-    pub transaction_amount: TemplateChild<Entry>,
-
-    #[template_child]
-    pub expense_category_entry: TemplateChild<Entry>,
 
     #[template_child]
     pub add_transaction_details: TemplateChild<Button>,
@@ -71,6 +57,7 @@ impl ObjectImpl for Window {
         // Setup
         let obj = self.obj();
         obj.setup_transactions();
+        obj.setup_actions();
         obj.setup_callbacks();
     }
 }

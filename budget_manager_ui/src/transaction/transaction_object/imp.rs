@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use adw::glib::{ParamSpecFloat, ParamSpecString};
+use adw::glib::{ParamSpecBoolean, ParamSpecFloat, ParamSpecString};
 use gtk::glib::once_cell::sync::Lazy;
 use budget_manager::budgeting::transaction::Transaction;
 
@@ -29,8 +29,6 @@ impl ObjectImpl for TransactionObject {
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
                 ParamSpecFloat::builder("amount")
-                    .minimum(0.0)
-                    .maximum(99999999.99)
                     .default_value(0.0)
                     .build(),
             ]
@@ -39,7 +37,6 @@ impl ObjectImpl for TransactionObject {
     }
 
     fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
-
         match pspec.name() {
             "payee" => {
                 let input_value = value.get().expect("The value needs to be of type `string`.");
@@ -54,7 +51,7 @@ impl ObjectImpl for TransactionObject {
                     .get()
                     .expect("The value needs to be of type `float`.");
                 self.data.borrow_mut().set_amount(input_value);
-            }
+            },
             _ => unimplemented!(),
         }
     }

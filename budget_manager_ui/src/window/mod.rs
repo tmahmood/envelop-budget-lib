@@ -4,8 +4,8 @@ use std::borrow::Borrow;
 use adw::{ActionRow, Application};
 use adw::glib::BindingFlags;
 use adw::prelude::ComboRowExt;
-use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label};
-use gtk::ffi::{GtkEntry, GtkLabel};
+use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch};
+use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -66,7 +66,6 @@ impl Window {
         let payee_label = row.imp().payee_label.get();
         let note_label = row.imp().note_label.get();
         let amount_label = row.imp().amount_label.get();
-
         transaction_object.bind_property("payee", &payee_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
@@ -78,26 +77,123 @@ impl Window {
             .build();
         row
     }
+    fn setup_actions(&self) {
+        // Create action to create new collection and add to action group "win"
+        let action_new_list = gio::SimpleAction::new("new-transaction", None);
+        action_new_list.connect_activate(clone!(@weak self as window => move |_, _| {
+            window.new_transaction();
+        }));
+        self.add_action(&action_new_list);
+    }
 
+    fn new_transaction(&self) {
+        // Create new Dialog
+        let dialog = Dialog::with_buttons(
+            Some("New Transaction"),
+            Some(self),
+            DialogFlags::MODAL
+                | DialogFlags::DESTROY_WITH_PARENT
+                | DialogFlags::USE_HEADER_BAR,
+            &[
+                ("Cancel", ResponseType::Cancel),
+                ("Create", ResponseType::Accept),
+            ],
+        );
+        dialog.set_default_response(ResponseType::Accept);
+
+        // Make the dialog button insensitive initially
+        let dialog_button = dialog
+            .widget_for_response(ResponseType::Accept)
+            .expect("The dialog needs to have a widget for response type `Accept`.");
+
+        // Create entry and add it to the dialog
+        let entry_payee = Entry::builder()
+            .margin_top(12)
+            .margin_bottom(12)
+            .margin_start(12)
+            .margin_end(12)
+            .placeholder_text("Payee")
+            .activates_default(true)
+            .build();
+        let entry_note = Entry::builder()
+            .margin_top(12)
+            .margin_bottom(12)
+            .margin_start(12)
+            .margin_end(12)
+            .placeholder_text("Note")
+            .activates_default(true)
+            .build();
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+        let toggle_expense = Switch::builder()
+            .margin_top(18)
+            .margin_bottom(18)
+            .margin_start(12)
+            .margin_end(12)
+            .build();
+        let entry_amount = Entry::builder()
+            .margin_top(12)
+            .margin_bottom(12)
+            .margin_start(12)
+            .margin_end(12)
+            .placeholder_text("Amount")
+            .activates_default(true)
+            .hexpand(true)
+            .build();
+        hbox.append(&entry_amount);
+        hbox.append(&toggle_expense);
+        dialog.content_area().append(&entry_payee);
+        dialog.content_area().append(&entry_note);
+        dialog.content_area().append(&hbox);
+
+        let safe_entry = |dialog: &Dialog, e_note: &Entry, e_payee: &Entry, e_amount: &Entry| {
+            let text_note = e_note.text();
+            let text_payee = e_payee.text();
+            let text_amount = e_amount.text();
+            let dialog_button = dialog.
+                widget_for_response(ResponseType::Accept).
+                expect("The dialog needs to have a widget for response type `Accept`.");
+            let f = |entry: &Entry| entry.add_css_class("error");
+            if text_amount.is_empty() || text_payee.is_empty() || text_note.is_empty() {
+                if text_amount.is_empty() { f(e_amount) }
+                if text_payee.is_empty() { f(e_payee) }
+                if text_note.is_empty() { f(e_note) }
+                return;
+            }
+            if text_amount.parse::<f32>().is_err() {
+                f(e_amount);
+                return;
+            }
+            e_note.remove_css_class("error");
+            e_amount.remove_css_class("error");
+            e_payee.remove_css_class("error");
+        };
+
+        // Set entry's css class to "error", when there is not text in it
+        entry_payee.connect_changed(clone!(@weak dialog,@weak entry_note, @weak entry_payee, @weak entry_amount => move |entry| safe_entry(&dialog, &entry_note, &entry_payee, &entry_amount)));
+        entry_amount.connect_changed(clone!(@weak dialog,@weak entry_note, @weak entry_payee, @weak entry_amount => move |entry| safe_entry(&dialog, &entry_note, &entry_payee, &entry_amount)));
+        entry_note.connect_changed(clone!(@weak dialog,@weak entry_note, @weak entry_payee, @weak entry_amount => move |entry| safe_entry(&dialog, &entry_note, &entry_payee, &entry_amount)));
+
+        // Connect response to dialog
+        dialog.connect_response(
+            clone!(@weak self as window, @weak entry_payee => move |dialog, response| {
+                dialog.destroy();
+                // Return if the user chose a response different than `Accept`
+                if response != ResponseType::Accept {
+                    dialog.destroy();
+                    return;
+                }
+                let payee = entry_payee.buffer().text();
+                let note = entry_note.buffer().text();
+                let amount = entry_amount.buffer().text().parse::<f32>().unwrap() * if toggle_expense.state() { 1. } else { -1. };
+                let transaction_object = TransactionObject::new(payee.clone(), note.clone(), amount);
+                let transactions = window.transactions();
+                transactions.append(&transaction_object);
+            }),
+        );
+        dialog.present();
+    }
 
     fn setup_callbacks(&self) {
-        let model = self.transactions();
-        let payee_entry = self.imp().transaction_payee.get();
-        let note_entry = self.imp().transaction_note.get();
-        let amount_entry = self.imp().transaction_amount.get();
-
-
-        self.imp().add_transaction_details.connect_clicked(clone!(@weak model => move | _ | {
-            let payee = payee_entry.buffer().text();
-            let note = note_entry.buffer().text();
-            let amount = amount_entry.buffer().text().parse::<f32>().unwrap();
-            let transaction_object = TransactionObject::new(payee.clone(), note.clone(), amount);
-            model.append(&transaction_object);
-            payee_entry.set_text("");
-            note_entry.set_text("");
-            amount_entry.set_text("");
-        }));
-
         // let model = self.expense_category();
         // self.imp().expense_category_entry.connect_activate(clone!(@weak model => move |entry| {
         //     let buffer = entry.buffer();
