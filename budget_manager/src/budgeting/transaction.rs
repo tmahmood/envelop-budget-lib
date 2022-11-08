@@ -5,6 +5,7 @@ pub struct Transaction {
     payee: String,
     note: String,
     amount: f32,
+    income: bool,
 }
 
 impl Transaction {
@@ -12,12 +13,21 @@ impl Transaction {
         Transaction {
             payee: payee.to_string(),
             note: note.to_string(),
-            amount,
+            amount, income: amount > 0.
         }
     }
 
     pub fn get_amount(&self) -> f32 {
         self.amount
+    }
+
+    pub fn get_only_amount(&self) -> f32 {
+        let a = self.amount;
+        if a < 0. { -1. * a} else { a }
+    }
+
+    pub fn is_income(&self) -> bool {
+        self.amount > 0.
     }
 
     pub fn get_note(&self) -> String {
@@ -29,6 +39,7 @@ impl Transaction {
     }
 
     pub fn set_amount(&mut self, amount: f32) {
+        self.income = amount > 0.;
         self.amount = amount;
     }
 

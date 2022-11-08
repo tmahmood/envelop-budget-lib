@@ -1,7 +1,7 @@
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CheckButton, CompositeTemplate, Label, Entry};
+use gtk::{glib, CheckButton, CompositeTemplate, Label, Entry, Image};
 use std::cell::RefCell;
 use adw::ActionRow;
 
@@ -18,6 +18,9 @@ pub struct TransactionRow {
 
     #[template_child]
     pub amount_label: TemplateChild<Label>,
+
+    #[template_child]
+    pub transaction_type: TemplateChild<Image>,
     // Vector holding the bindings to properties of `TransactionObject`
     pub bindings: RefCell<Vec<Binding>>,
 }

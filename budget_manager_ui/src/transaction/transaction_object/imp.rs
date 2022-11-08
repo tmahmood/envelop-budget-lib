@@ -28,9 +28,8 @@ impl ObjectImpl for TransactionObject {
             vec![
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
-                ParamSpecFloat::builder("amount")
-                    .default_value(0.0)
-                    .build(),
+                ParamSpecFloat::builder("amount").default_value(0.0).build(),
+                ParamSpecFloat::builder("only-amount").build(),
             ]
         });
         PROPERTIES.as_ref()
@@ -52,6 +51,7 @@ impl ObjectImpl for TransactionObject {
                     .expect("The value needs to be of type `float`.");
                 self.data.borrow_mut().set_amount(input_value);
             },
+            "only-amount" => {},
             _ => unimplemented!(),
         }
     }
@@ -61,6 +61,7 @@ impl ObjectImpl for TransactionObject {
             "note" => self.data.borrow().get_note().to_value(),
             "amount" => self.data.borrow().get_amount().to_value(),
             "payee" => self.data.borrow().get_payee().to_value(),
+            "only-amount" => self.data.borrow().get_only_amount().to_value(),
             _ => unimplemented!(),
         }
     }

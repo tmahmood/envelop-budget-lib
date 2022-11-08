@@ -66,13 +66,21 @@ impl Window {
         let payee_label = row.imp().payee_label.get();
         let note_label = row.imp().note_label.get();
         let amount_label = row.imp().amount_label.get();
+        let image = row.imp().transaction_type.get();
+
+        if transaction_object.is_income() {
+            image.set_icon_name(Some("zoom-in"));
+        } else {
+            image.set_icon_name(Some("zoom-out"));
+        }
+
         transaction_object.bind_property("payee", &payee_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object.bind_property("note", &note_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-        transaction_object.bind_property("amount", &amount_label, "label")
+        transaction_object.bind_property("only_amount", &amount_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         row
@@ -192,6 +200,7 @@ impl Window {
         );
         dialog.present();
     }
+
 
     fn setup_callbacks(&self) {
         // let model = self.expense_category();
