@@ -6,7 +6,7 @@ use adw::prelude::*;
 use budget_manager;
 
 
-use adw::{Application, ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
+use adw::{Application, ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher, gio};
 use adw::gdk::Display;
 use adw::gio::Settings;
 use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -24,10 +24,14 @@ use crate::window::Window;
 mod window;
 mod transaction;
 mod expense_category;
+mod new_transaction_dialog;
 
 const APP_ID: &str = "org.tmn.budgetTracker";
 
 fn main() {
+   gio::resources_register_include!("app.gresource")
+        .expect("Failed to register resources.");
+
     let application = Application::builder()
         .application_id(APP_ID)
         .build();

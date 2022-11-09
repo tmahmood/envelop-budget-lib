@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/tmn/BudgetManager/">
+      <file compressed="true" preprocess="xml-stripblanks">main_window.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">new_transaction_dialog.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">transaction_row.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">budget_balance_entry.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">expense_category_row.ui</file>
+  </gresource>
+</gresources>
