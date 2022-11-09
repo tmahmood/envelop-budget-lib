@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use adw::ActionRow;
+use adw::gio::Settings;
+use adw::glib::signal::Inhibit;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{Button, Entry, gio, ListBox, ListView};
@@ -16,9 +18,8 @@ use gtk::prelude::*;
 use budget_manager::budgeting::transaction::Transaction;
 
 #[derive(CompositeTemplate, Default)]
-#[template(file="../../resources/main_window.ui")]
+#[template(file = "../../resources/main_window.ui")]
 pub struct Window {
-
     #[template_child]
     pub add_transaction_details: TemplateChild<Button>,
 
@@ -29,7 +30,9 @@ pub struct Window {
     pub expense_category_list_view: TemplateChild<ListBox>,
 
     pub transactions: RefCell<Option<gio::ListStore>>,
-    pub expense_categories: RefCell<Option<gio::ListStore>>
+    pub expense_categories: RefCell<Option<gio::ListStore>>,
+
+    pub settings: OnceCell<Settings>,
 }
 
 
@@ -65,7 +68,17 @@ impl ObjectImpl for Window {
 impl WidgetImpl for Window {}
 
 // Trait shared by all windows
-impl WindowImpl for Window {}
+impl WindowImpl for Window {
+    // Save window state right before the window will be closed
+    fn close_request(&self) -> Inhibit {
+        // Save window size
+        self.obj()
+            .save_all_settings()
+            .expect("Failed to save settings");
+        // Don't inhibit the default handler
+        Inhibit(false)
+    }
+}
 
 impl ApplicationWindowImpl for Window {}
 

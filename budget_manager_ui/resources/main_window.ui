@@ -20,6 +20,10 @@
             </item>
         </submenu>
         <item>
+            <attribute name="label" translatable="yes">Income by default</attribute>
+            <attribute name="action">win.set_income_by_default</attribute>
+        </item>
+        <item>
             <attribute name="label" translatable="yes">_Remove Done Tasks</attribute>
             <attribute name="action">win.remove-done-tasks</attribute>
         </item>
@@ -29,7 +33,7 @@
         </item>
     </menu>
     <template class="BudgetAppWindow" parent="AdwApplicationWindow">
-        <property name="title" translatable="yes">To-Do</property>
+        <property name="title" translatable="yes">Budget Tracker</property>
         <property name="default_width">650</property>
         <property name="default_height">550</property>
         <property name="content">
@@ -46,7 +50,9 @@
                                 <child>
                                     <object class="AdwHeaderBar">
                                         <property name="title-widget">
-                                            <object class="AdwWindowTitle"/>
+                                            <object class="AdwWindowTitle">
+                                                <property name="title">Budget tracker</property>
+                                            </object>
                                         </property>
                                         <child type="start">
                                             <object class="GtkButton" id="add_transaction_details">

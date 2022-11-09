@@ -2,6 +2,7 @@ mod imp;
 
 use std::borrow::Borrow;
 use adw::{ActionRow, Application};
+use adw::gio::Settings;
 use adw::glib::BindingFlags;
 use adw::prelude::ComboRowExt;
 use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch};
@@ -9,6 +10,7 @@ use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use crate::APP_ID;
 use crate::expense_category::expense_category_object::ExpenseCategoryObject;
 use crate::expense_category::expense_category_row::ExpenseCategoryRow;
 use crate::transaction::transaction_object::TransactionObject;
@@ -21,8 +23,6 @@ pub struct Window(ObjectSubclass<imp::Window>)
                 gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
 }
 
-pub fn callback(entry: Entry) {}
-
 impl Window {
     pub fn new(app: &Application) -> Self {
         Object::builder().property("application", app).build()
@@ -34,6 +34,27 @@ impl Window {
 
     fn expense_category(&self) -> gio::ListStore {
         self.imp().expense_categories.borrow().clone().unwrap()
+    }
+
+    fn setup_settings(&self) {
+        let settings = Settings::new(APP_ID);
+        self.imp().settings.set(settings).expect("Settings should not be set before calling `setup_settings`.")
+    }
+
+    fn settings(&self) -> &Settings {
+        self.imp().settings.get().expect("Settings should be set in `setup_settings`")
+    }
+
+    pub fn save_all_settings(&self) -> Result<(), glib::BoolError> {
+        // Get the size of the window
+
+        // Set the window state in `settings`
+        // self.settings().set_int("window-width", size.0)?;
+        // self.settings().set_int("window-height", size.1)?;
+        // self.settings()
+        //     .set_boolean("is-maximized", self.is_maximized())?;
+
+        Ok(())
     }
 
     fn setup_transactions(&self) {
@@ -85,6 +106,8 @@ impl Window {
             .build();
         row
     }
+
+
     fn setup_actions(&self) {
         // Create action to create new collection and add to action group "win"
         let action_new_list = gio::SimpleAction::new("new-transaction", None);

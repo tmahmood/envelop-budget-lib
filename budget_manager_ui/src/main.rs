@@ -8,8 +8,9 @@ use budget_manager;
 
 use adw::{Application, ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
 use adw::gdk::Display;
+use adw::gio::Settings;
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use gtk::{Box, ListBox, Orientation, Button, ApplicationWindow, StackPage, Stack, glib, CssProvider, StyleContext};
+use gtk::{Box, ListBox, Orientation, Button, StackPage, Stack, glib, CssProvider, StyleContext};
 use gtk::glib::Object;
 use rand::{Rng, thread_rng};
 // use adw::{ActionRow, HeaderBar, ApplicationWindow};
@@ -24,15 +25,20 @@ mod window;
 mod transaction;
 mod expense_category;
 
+const APP_ID: &str = "org.tmn.budgetTracker";
 
 fn main() {
     let application = Application::builder()
-        .application_id("com.gtk.budgetTracker")
+        .application_id(APP_ID)
         .build();
+    application.connect_startup(setup_shortcuts);
     application.connect_activate(build_ui);
     application.run();
 }
 
+fn setup_shortcuts(app: &Application) {
+    &app.set_accels_for_action("win.new-transaction", &["<Ctrl>a"]);
+}
 
 fn build_ui(app: &Application) {
     let window = Window::new(app);
