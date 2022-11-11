@@ -15,6 +15,7 @@ use gtk::CompositeTemplate;
 use gtk::gio::glib::once_cell::sync::OnceCell;
 use gtk::glib::once_cell::sync::Lazy;
 use gtk::prelude::*;
+use budget_manager::budgeting::budget_account::BudgetAccount;
 use budget_manager::budgeting::transaction::Transaction;
 
 #[derive(CompositeTemplate, Default)]
@@ -33,6 +34,7 @@ pub struct Window {
     pub expense_categories: RefCell<Option<gio::ListStore>>,
 
     pub settings: OnceCell<Settings>,
+    pub budget: OnceCell<BudgetAccount>,
 }
 
 
@@ -62,6 +64,7 @@ impl ObjectImpl for Window {
         obj.setup_transactions();
         obj.setup_actions();
         obj.setup_callbacks();
+        obj.setup_budget_account();
     }
 }
 

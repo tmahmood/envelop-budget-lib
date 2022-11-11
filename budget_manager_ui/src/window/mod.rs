@@ -1,6 +1,7 @@
 mod imp;
 
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use adw::{ActionRow, Application};
 use adw::gio::Settings;
 use adw::glib::BindingFlags;
@@ -10,6 +11,8 @@ use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::transaction_category::TransactionCategory;
 use crate::APP_ID;
 use crate::expense_category::expense_category_object::ExpenseCategoryObject;
 use crate::expense_category::expense_category_row::ExpenseCategoryRow;
@@ -129,10 +132,13 @@ impl Window {
         let entry_amount = dialog.imp().entry_amount.get();
         let toggle_income = dialog.imp().toggle_income.get();
 
-        let safe_entry = |dialog: &NewTransactionDialog, current_entry: &Entry, is_num: bool| -> bool {
+        let safe_entry = |dialog: &NewTransactionDialog,
+                          current_entry: &Entry, is_num: bool,
+                          e1: &Entry, e2: &Entry, e3: &Entry| -> bool {
             let dialog_button = dialog
                 .widget_for_response(ResponseType::Accept)
                 .expect("The dialog needs to have a widget for response type `Accept`.");
+
             let f = |entry: &Entry| {
                 dialog_button.set_sensitive(false);
                 entry.add_css_class("error");
@@ -145,39 +151,52 @@ impl Window {
                 f(current_entry);
                 return false;
             }
-            dialog_button.set_sensitive(true);
+            if e1.text().is_empty() || e2.text().is_empty() || e3.text().is_empty() {
+                dialog_button.set_sensitive(false);
+            } else {
+                dialog_button.set_sensitive(true);
+            }
             current_entry.remove_css_class("error");
             return true;
         };
 
-        // Set entry's css class to "error", when there is not text in it
-        entry_payee.connect_changed(clone!(@weak dialog, => move |entry| safe_entry(&dialog, entry, false);));
-        entry_amount.connect_changed(clone!(@weak dialog, => move |entry| safe_entry(&dialog, entry, true);));
-        entry_note.connect_changed(clone!(@weak dialog, => move |entry| safe_entry(&dialog, entry, false);));
+        entry_payee.connect_changed(clone!(
+            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
+            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
+        entry_amount.connect_changed(clone!(
+            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
+            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
+        entry_note.connect_changed(clone!(
+            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
+            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
+
+        let on_dialog_action = move |
+            window: &Window, dialog: &NewTransactionDialog, response: ResponseType,
+            payee: String, note: String, amount: f32
+        | {
+            // Return if the user chose a response different than `Accept`
+            if response != ResponseType::Accept {
+                dialog.destroy();
+                return;
+            }
+            dialog.destroy();
+            let transaction_object = TransactionObject::new(
+                payee.clone(), note.clone(), amount
+            );
+            let transactions = window.transactions();
+            transactions.append(&transaction_object);
+        };
 
         // Connect response to dialog
-        dialog.connect_response(
-            clone!(@weak self as window, @weak entry_payee => move |dialog, response| {
-                let e1 = safe_entry(&dialog, &entry_payee, false);
-                let e2 = safe_entry(&dialog, &entry_note, false);
-                let e3 = safe_entry(&dialog, &entry_amount, true);
-                if ! (e1 && e2 && e3 ) {
-                    return;
-                }
-                dialog.destroy();
-                // Return if the user chose a response different than `Accept`
-                if response != ResponseType::Accept {
-                    dialog.destroy();
-                    return;
-                }
+        dialog.connect_response(clone!(
+            @weak self as window, @weak entry_payee =>
+            move |dialog, response| {
                 let payee = entry_payee.buffer().text();
                 let note = entry_note.buffer().text();
                 let amount = entry_amount.buffer().text().parse::<f32>().unwrap() * if toggle_income.state() { 1. } else { -1. };
-                let transaction_object = TransactionObject::new(payee.clone(), note.clone(), amount);
-                let transactions = window.transactions();
-                transactions.append(&transaction_object);
-            }),
-        );
+                on_dialog_action(&window, dialog, response, payee, note, amount);
+            }
+        ));
         dialog.present();
     }
 
@@ -194,5 +213,13 @@ impl Window {
         //     model.append(&expense_category_object);
         //     buffer.set_text("");
         // }));
+    }
+
+    pub fn setup_budget_account(&self) {
+        let mut categories = HashMap::new();
+        categories.insert("Bills".to_string(), TransactionCategory::new_with_max_budget("Bills", 2000.0));
+        categories.insert("Travel".to_string(), TransactionCategory::new_with_max_budget("Travel", 3000.0));
+        let b = BudgetAccount::new("main", 10000.0, categories);
+        self.imp().budget.set(b).unwrap();
     }
 }

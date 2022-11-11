@@ -58,10 +58,10 @@ impl ObjectImpl for TransactionObject {
 
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
-            "note" => self.data.borrow().get_note().to_value(),
-            "amount" => self.data.borrow().get_amount().to_value(),
-            "payee" => self.data.borrow().get_payee().to_value(),
-            "only-amount" => self.data.borrow().get_only_amount().to_value(),
+            "note" => self.data.borrow().note().to_value(),
+            "amount" => self.data.borrow().amount().to_value(),
+            "payee" => self.data.borrow().payee().to_value(),
+            "only-amount" => self.data.borrow().only_amount().to_value(),
             _ => unimplemented!(),
         }
     }
