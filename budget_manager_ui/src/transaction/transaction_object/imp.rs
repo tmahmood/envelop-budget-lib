@@ -29,6 +29,7 @@ impl ObjectImpl for TransactionObject {
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
                 ParamSpecFloat::builder("amount").default_value(0.0).build(),
+                ParamSpecString::builder("category-name").default_value(budget_manager::DEFAULT_CATEGORY).build(),
                 ParamSpecFloat::builder("only-amount").build(),
             ]
         });
@@ -42,7 +43,7 @@ impl ObjectImpl for TransactionObject {
                 self.data.borrow_mut().set_payee(input_value);
             }
             "note" => {
-                let input_value = value.get().expect("The value needs to be of type `string`.");
+                let input_value = value.get().expect("the value needs to be of type `string`.");
                 self.data.borrow_mut().set_note(input_value);
             }
             "amount" => {
@@ -51,6 +52,10 @@ impl ObjectImpl for TransactionObject {
                     .expect("The value needs to be of type `float`.");
                 self.data.borrow_mut().set_amount(input_value);
             },
+            "category-name" => {
+                let input_value = value.get().expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().set_category_name(input_value);
+            }
             "only-amount" => {},
             _ => unimplemented!(),
         }
@@ -62,6 +67,7 @@ impl ObjectImpl for TransactionObject {
             "amount" => self.data.borrow().amount().to_value(),
             "payee" => self.data.borrow().payee().to_value(),
             "only-amount" => self.data.borrow().only_amount().to_value(),
+            "category-name" => self.data.borrow().category_name().to_value(),
             _ => unimplemented!(),
         }
     }

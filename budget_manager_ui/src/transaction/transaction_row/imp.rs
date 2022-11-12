@@ -20,6 +20,9 @@ pub struct TransactionRow {
     pub amount_label: TemplateChild<Label>,
 
     #[template_child]
+    pub category_name_label: TemplateChild<Label>,
+
+    #[template_child]
     pub transaction_type: TemplateChild<Image>,
     // Vector holding the bindings to properties of `TransactionObject`
     pub bindings: RefCell<Vec<Binding>>,

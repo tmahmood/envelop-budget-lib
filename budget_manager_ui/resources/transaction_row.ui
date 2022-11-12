@@ -51,11 +51,24 @@
                             </object>
                         </child>
                         <child>
-                            <object class="GtkLabel" id="amount_label">
-                                <property name="yalign">0</property>
-                                <style>
-                                    <class name="dim-label"/>
-                                </style>
+                            <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <child>
+                                    <object class="GtkLabel" id="amount_label">
+                                        <property name="yalign">0</property>
+                                        <style>
+                                            <class name="title-3"/>
+                                        </style>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkLabel" id="category_name_label">
+                                        <property name="halign">end</property>
+                                        <style>
+                                            <class name="dim-label"/>
+                                        </style>
+                                    </object>
+                                </child>
                             </object>
                         </child>
                     </object>

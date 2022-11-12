@@ -7,10 +7,10 @@ glib::wrapper! {
 }
 
 impl ExpenseCategoryObject {
-    pub fn new(name: String, max_budget: f32) -> Self {
+    pub fn new(name: String, allocated: f32) -> Self {
         Object::builder()
             .property("name", &name)
-            .property("maxbudget", &max_budget)
+            .property("allocated", &allocated)
             .build()
     }
 }

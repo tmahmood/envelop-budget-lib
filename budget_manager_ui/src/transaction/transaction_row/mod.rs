@@ -24,14 +24,4 @@ impl TransactionRow {
     pub fn new() -> Self {
         Object::builder().build()
     }
-
-    pub fn bind(&self, transaction_object: &TransactionObject) {
-    }
-
-    pub fn unbind(&self) {
-        let imp = imp::TransactionRow::from_instance(self);
-        for binding in imp.bindings.borrow_mut().drain(..) {
-            binding.unbind();
-        }
-    }
 }

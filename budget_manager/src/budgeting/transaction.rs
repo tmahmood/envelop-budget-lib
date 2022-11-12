@@ -57,5 +57,9 @@ impl Transaction {
     pub fn set_note(&mut self, note: String) {
         self.note = note;
     }
+
+    pub fn set_category_name(&mut self, category_name: String) {
+        self.category_name = category_name;
+    }
 }
 

@@ -29,7 +29,7 @@ impl ObjectImpl for ExpenseCategoryObject {
         static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
             vec![
                 ParamSpecString::builder("name").default_value(None).build(),
-                ParamSpecFloat::builder("maxbudget")
+                ParamSpecFloat::builder("allocated")
                     .minimum(0.0)
                     .maximum(9999999.99)
                     .default_value(0.0)
@@ -45,11 +45,11 @@ impl ObjectImpl for ExpenseCategoryObject {
                 let input_value = value.get().expect("The value needs to be of type `string`.");
                 self.data.borrow_mut().set_name(input_value);
             }
-            "maxbudget" => {
+            "allocated" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `float`.");
-                self.data.borrow_mut().set_max_budget(input_value);
+                self.data.borrow_mut().set_allocated(input_value);
             }
             _ => unimplemented!(),
         }
@@ -57,8 +57,8 @@ impl ObjectImpl for ExpenseCategoryObject {
 
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
-            "name" => self.data.borrow().get_name().to_value(),
-            "maxbudget" => self.data.borrow().get_max_budget().to_value(),
+            "name" => self.data.borrow().name().to_value(),
+            "maxbudget" => self.data.borrow().allocated().to_value(),
             _ => unimplemented!(),
         }
     }

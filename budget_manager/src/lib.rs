@@ -1,6 +1,6 @@
 
 
-const DEFAULT_CATEGORY: &str = "Unused";
+pub const DEFAULT_CATEGORY: &str = "Unallocated";
 
 ///
 /// # Envelope budgeting
@@ -51,13 +51,15 @@ mod tests {
         assert_eq!(budget.total_balance(), INITIAL);
         assert_eq!(budget.unallocated(), INITIAL - (BILLS + TRAVEL));
         // now let's made some transactions
-        budget.new_expense(Some("Bills"), 300.);
-        budget.new_expense(Some("Travel"), 1300.);
-        budget.new_expense(None, 1000.);
+        budget.new_expense(Some("Bills"), 300., "Some", "Other");
+        budget.new_expense(Some("Travel"), 1300., "Now", "Other");
+        budget.new_expense(None, 1000., "Other", "Other");
+        budget.new_income(None, 5000., "Other", "Other");
+        budget.new_income(Some("Travel"), 400., "Other", "Other");
         // check total balance
         assert_eq!(
             budget.total_balance(),
-            INITIAL - 300. - 1300. - 1000.
+            INITIAL - 2600. + 5400.
         );
         assert_eq!(
             budget.category_balance("Bills"),
@@ -65,7 +67,21 @@ mod tests {
         );
         assert_eq!(
             budget.category_balance("Travel"),
-            TRAVEL - 1300.
+            TRAVEL - 1300. + 400.
+        );
+        assert_eq!(
+            budget.find_or_create_category_by_name("Bills").allocated(),
+            BILLS
+        );
+        budget.update_allocation("Bills", 3000.).unwrap();
+        assert_eq!(
+            budget.find_or_create_category_by_name("Bills").allocated(),
+            3000.
+        );
+        // where does this 3000. comes from? It has to come from default unallocated category.
+        assert_eq!(
+            budget.unallocated(),
+            4000.
         );
     }
 }

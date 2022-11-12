@@ -4,12 +4,13 @@ use gtk::subclass::prelude::*;
 use gtk::{glib, CheckButton, CompositeTemplate, Label, Entry, Image, Switch};
 use std::cell::RefCell;
 use adw::ActionRow;
+use adw::glib::once_cell::sync::Lazy;
+use adw::glib::subclass::Signal;
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
 #[template(file = "../../resources/new_transaction_dialog.ui")]
 pub struct NewTransactionDialog {
-
     #[template_child]
     pub entry_payee: TemplateChild<Entry>,
 
@@ -43,12 +44,21 @@ impl ObjectSubclass for NewTransactionDialog {
 }
 
 // Trait shared by all GObjects
-impl ObjectImpl for NewTransactionDialog {}
+impl ObjectImpl for NewTransactionDialog {
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            vec![Signal::builder("budget-updated")
+                .param_types([i32::static_type()])
+                .build()]
+        });
+        SIGNALS.as_ref()
+    }
+}
 
 // Trait shared by all widgets
 impl WidgetImpl for NewTransactionDialog {}
 
-// Trait shared by all boxes
+// Trait shared by all Windows
 impl WindowImpl for NewTransactionDialog {}
 
 impl DialogImpl for NewTransactionDialog {}

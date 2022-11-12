@@ -13,8 +13,6 @@ use adw::subclass::prelude::ObjectSubclassIsExt;
 use gtk::{Box, ListBox, Orientation, Button, StackPage, Stack, glib, CssProvider, StyleContext};
 use gtk::glib::Object;
 use rand::{Rng, thread_rng};
-// use adw::{ActionRow, HeaderBar, ApplicationWindow};
-// use gtk::{Box, ListBox, Orientation, Button, Application};
 
 use budget_manager::budgeting::budget_account::BudgetAccount;
 use budget_manager::budgeting::transaction::Transaction;

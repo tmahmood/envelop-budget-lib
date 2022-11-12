@@ -10,14 +10,19 @@ glib::wrapper! {
 }
 
 impl TransactionObject {
-    pub fn new(payee: String, note: String, amount: f32) -> Self {
+    pub fn new(payee: String, note: String, amount: f32, category: &str) -> Self {
         let only_amount = if amount > 0. { amount } else { -1. * amount };
         Object::builder()
             .property("payee", &payee)
             .property("note", &note)
             .property("amount", &amount)
             .property("only-amount", &only_amount)
+            .property("category-name", &category)
             .build()
+    }
+
+    pub fn category_name(&self) -> String {
+        self.imp().data.borrow().category_name().to_string()
     }
 
     pub fn payee(&self) -> String {
@@ -40,11 +45,12 @@ impl TransactionObject {
         self.imp().data.borrow().is_income()
     }
 
-    pub fn from_transaction_data(transaction_data: Transaction ) -> Self {
+    pub fn from_transaction_data(transaction_data: &Transaction) -> Self {
         Self::new(
             transaction_data.payee(),
             transaction_data.note(),
-            transaction_data.amount()
+            transaction_data.amount(),
+            transaction_data.category_name(),
         )
     }
 }

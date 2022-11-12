@@ -9,11 +9,6 @@ pub struct TransactionCategory {
 
 impl TransactionCategory {
 
-    pub(crate) fn update_allocation(&mut self, amount: f32) -> &mut Self {
-        self.allocated += amount;
-        self
-    }
-
     pub(crate) fn new_with_allocated(name: &str, allocated: f32) -> Self {
         TransactionCategory {
             name: name.to_string(),
@@ -28,24 +23,20 @@ impl TransactionCategory {
         }
     }
 
-    pub(crate) fn name(&mut self, name: &str) -> &mut Self {
+    pub(crate) fn set_name(&mut self, name: &str) {
         self.name = name.to_string();
-        self
     }
 
-    pub(crate) fn get_name(&self) -> String {
+    pub fn name(&self) -> String {
         self.name.to_owned()
     }
 
-    pub(crate) fn allocated(&self) -> f32 {
+    pub fn allocated(&self) -> f32 {
         self.allocated.into()
     }
 
-    pub(crate) fn available(&self, transactions: &Vec<Transaction>) -> f32 {
-        let sum = transactions.iter()
-            .map(|v| v.amount())
-            .sum::<f32>();
-        self.allocated() +  sum
+    pub(crate) fn set_allocated(&mut self, amount: f32) {
+        self.allocated = amount;
     }
 }
 

@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use adw::ActionRow;
+use adw::{ActionRow, ExpanderRow};
+use adw::ffi::{AdwExpanderRow, AdwHeaderBar, AdwWindowTitle};
 use adw::gio::Settings;
 use adw::glib::signal::Inhibit;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{Button, Entry, gio, ListBox, ListView};
+use gtk::{Button, Entry, gio, Label, ListBox, ListView};
 use gtk::cairo::glib::subclass::TypeData;
 use gtk::glib::{Type, Value, ParamSpec, ParamFlags};
 use gtk::glib::subclass::InitializingObject;
@@ -28,13 +29,25 @@ pub struct Window {
     pub transactions_list: TemplateChild<ListBox>,
 
     #[template_child]
+    pub budget_details_available: TemplateChild<ExpanderRow>,
+
+    #[template_child]
+    pub budget_total_expense: TemplateChild<Label>,
+
+    #[template_child]
+    pub budget_unallocated: TemplateChild<Label>,
+
+    #[template_child]
+    pub budget_total_income: TemplateChild<Label>,
+
+    #[template_child]
     pub expense_category_list_view: TemplateChild<ListBox>,
 
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub expense_categories: RefCell<Option<gio::ListStore>>,
 
     pub settings: OnceCell<Settings>,
-    pub budget: OnceCell<BudgetAccount>,
+    pub budget: RefCell<BudgetAccount>,
 }
 
 
@@ -44,7 +57,7 @@ impl ObjectSubclass for Window {
     // `NAME` needs to match `class` attribute of template
     const NAME: &'static str = "BudgetAppWindow";
     type Type = super::Window;
-    type ParentType = adw::ApplicationWindow;
+    type ParentType = gtk::ApplicationWindow;
 
     fn class_init(klass: &mut Self::Class) {
         Self::bind_template(klass);
@@ -61,10 +74,10 @@ impl ObjectImpl for Window {
 
         // Setup
         let obj = self.obj();
-        obj.setup_transactions();
+        obj.setup_budget_account();
+        obj.update_budget_details();
         obj.setup_actions();
         obj.setup_callbacks();
-        obj.setup_budget_account();
     }
 }
 

@@ -1,10 +1,12 @@
 mod imp;
 
+use adw::prelude::*;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use adw::{ActionRow, Application};
+use adw::ffi::AdwHeaderBar;
 use adw::gio::Settings;
-use adw::glib::BindingFlags;
+use adw::glib::{BindingFlags, closure_local};
 use adw::prelude::ComboRowExt;
 use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch};
 use gtk::builders::BoxBuilder;
@@ -12,10 +14,9 @@ use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::transaction::Transaction;
 use budget_manager::budgeting::transaction_category::TransactionCategory;
 use crate::APP_ID;
-use crate::expense_category::expense_category_object::ExpenseCategoryObject;
-use crate::expense_category::expense_category_row::ExpenseCategoryRow;
 use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::transaction::transaction_row::TransactionRow;
@@ -31,6 +32,61 @@ impl Window {
     pub fn new(app: &Application) -> Self {
         Object::builder().property("application", app).build()
     }
+
+    pub fn setup_budget_account(&self) {
+        // this section is a stab, in reality, it will be loaded from data file.
+        let mut budget = BudgetAccount::new("main", 10000.0, vec![
+            ("Bills", 3000.),
+            ("Travel", 2000.),
+        ]);
+        budget.new_expense(Some("Bills"), 300.34, "Uber", "someplace");
+        budget.new_expense(Some("Travel"), 1300.23, "Foodpanda", "food");
+        budget.new_expense(None, 1000., "SCB", "Card payment");
+        budget.new_income(None, 5000., "Work", "Some payment");
+        budget.new_income(Some("Travel"), 400., "UP", "Salary");
+        // end stab
+        let model = gio::ListStore::new(TransactionObject::static_type());
+        self.imp().transactions.replace(Some(model));
+        let selection_model = NoSelection::new(Some(&self.transactions()));
+        self.imp().transactions_list.bind_model(
+            Some(&selection_model),
+            clone!(@weak self as window => @default-panic, move |obj| {
+                let transaction_obj = obj.downcast_ref().expect("The object should be of type `TransactionObject`.");
+                let row = window.create_transaction_row(transaction_obj);
+                row.upcast()
+            }),
+        );
+        let transactions = self.transactions();
+        self.set_transactions_list_visible(&transactions);
+        self.transactions().connect_items_changed(
+            clone!(@weak self as window => move |transactions, _, _, _| {
+                window.set_transactions_list_visible(transactions);
+            }),
+        );
+        budget.all_transactions().iter().for_each(|transaction| {
+            let transaction_object = TransactionObject::from_transaction_data(transaction);
+            transactions.append(&transaction_object);
+        });
+
+        self.imp().budget.replace(budget);
+    }
+
+    fn update_budget_details(&self) {
+        let mut budget = self.imp().budget.borrow_mut();
+
+        let budget_details_available = self.imp().budget_details_available.get();
+        budget_details_available.set_title(&budget.total_balance().to_string());
+
+        let budget_total_income = self.imp().budget_total_income.get();
+        budget_total_income.set_text(&budget.total_income().to_string());
+
+        let budget_total_expense = self.imp().budget_total_expense.get();
+        budget_total_expense.set_text(&budget.total_expense().to_string());
+
+        let budget_unallocated = self.imp().budget_unallocated.get();
+        budget_unallocated.set_text(&budget.unallocated().to_string());
+    }
+
 
     fn transactions(&self) -> gio::ListStore {
         self.imp().transactions.borrow().clone().unwrap()
@@ -61,25 +117,6 @@ impl Window {
         Ok(())
     }
 
-    fn setup_transactions(&self) {
-        let model = gio::ListStore::new(TransactionObject::static_type());
-        self.imp().transactions.replace(Some(model));
-        let selection_model = NoSelection::new(Some(&self.transactions()));
-        self.imp().transactions_list.bind_model(
-            Some(&selection_model),
-            clone!(@weak self as window => @default-panic, move |obj| {
-                let transaction_obj = obj.downcast_ref().expect("The object should be of type `TransactionObject`.");
-                let row = window.create_transaction_row(transaction_obj);
-                row.upcast()
-            }),
-        );
-        self.set_transactions_list_visible(&self.transactions());
-        self.transactions().connect_items_changed(
-            clone!(@weak self as window => move |transactions, _, _, _| {
-                window.set_transactions_list_visible(transactions);
-            }),
-        );
-    }
     /// Assure that `transactions_list` is only visible
     /// if the number of tasks is greater than 0
     fn set_transactions_list_visible(&self, transactions: &gio::ListStore) {
@@ -91,11 +128,14 @@ impl Window {
         let payee_label = row.imp().payee_label.get();
         let note_label = row.imp().note_label.get();
         let amount_label = row.imp().amount_label.get();
+        let category_name_label = row.imp().category_name_label.get();
         let image = row.imp().transaction_type.get();
         if transaction_object.is_income() {
-            image.set_icon_name(Some("zoom-in"));
+            row.imp().amount_label.set_css_classes(&["success"]);
+            image.set_icon_name(Some("go-up"));
         } else {
-            image.set_icon_name(Some("zoom-out"));
+            row.imp().amount_label.set_css_classes(&["error"]);
+            image.set_icon_name(Some("go-down"));
         }
         transaction_object.bind_property("payee", &payee_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
@@ -104,6 +144,9 @@ impl Window {
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object.bind_property("only_amount", &amount_label, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
+        transaction_object.bind_property("category-name", &category_name_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         row
@@ -170,33 +213,47 @@ impl Window {
             @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
             move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
 
-        let on_dialog_action = move |
-            window: &Window, dialog: &NewTransactionDialog, response: ResponseType,
-            payee: String, note: String, amount: f32
-        | {
-            // Return if the user chose a response different than `Accept`
-            if response != ResponseType::Accept {
-                dialog.destroy();
-                return;
-            }
+        let on_dialog_action = move |window: &Window, dialog: &NewTransactionDialog,
+                                     response: ResponseType, payee: String, note: String, amount: f32, is_income: bool| {
             dialog.destroy();
-            let transaction_object = TransactionObject::new(
-                payee.clone(), note.clone(), amount
-            );
-            let transactions = window.transactions();
-            transactions.append(&transaction_object);
+            // TODO must replace with actual transaction category
+            let category = None;
+            {
+                let mut budget = window.imp().budget.borrow_mut();
+                let t = if is_income {
+                    budget.new_income(category, amount, &payee, &note)
+                } else {
+                    budget.new_expense(category, amount, &payee, &note)
+                }.unwrap();
+                let transactions = window.transactions();
+                transactions.append(&TransactionObject::from_transaction_data(t));
+            }
+            dialog.emit_by_name::<()>("budget-updated", &[&1]);
         };
 
         // Connect response to dialog
         dialog.connect_response(clone!(
-            @weak self as window, @weak entry_payee =>
-            move |dialog, response| {
+            @weak self as window, @weak entry_payee => move |dialog, response| {
+                // Return if the user chose a response different than `Accept`
+                if response != ResponseType::Accept {
+                    dialog.destroy();
+                    return;
+                }
                 let payee = entry_payee.buffer().text();
                 let note = entry_note.buffer().text();
-                let amount = entry_amount.buffer().text().parse::<f32>().unwrap() * if toggle_income.state() { 1. } else { -1. };
-                on_dialog_action(&window, dialog, response, payee, note, amount);
+                let amount = entry_amount.buffer().text().parse::<f32>().unwrap();
+                on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.state());
             }
         ));
+
+        let update_subtitle_and_other_things = clone!(@weak self as window => move || {
+            window.update_budget_details()
+        });
+
+        dialog.connect_closure(
+            "budget-updated", false,
+            closure_local!(move |_:NewTransactionDialog, _: i32| update_subtitle_and_other_things()));
+
         dialog.present();
     }
 
@@ -213,13 +270,5 @@ impl Window {
         //     model.append(&expense_category_object);
         //     buffer.set_text("");
         // }));
-    }
-
-    pub fn setup_budget_account(&self) {
-        let mut categories = HashMap::new();
-        categories.insert("Bills".to_string(), TransactionCategory::new_with_max_budget("Bills", 2000.0));
-        categories.insert("Travel".to_string(), TransactionCategory::new_with_max_budget("Travel", 3000.0));
-        let b = BudgetAccount::new("main", 10000.0, categories);
-        self.imp().budget.set(b).unwrap();
     }
 }
