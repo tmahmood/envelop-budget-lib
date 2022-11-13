@@ -26,10 +26,13 @@ pub struct Window {
     pub add_transaction_details: TemplateChild<Button>,
 
     #[template_child]
-    pub transactions_list: TemplateChild<ListBox>,
+    pub transactions_list: TemplateChild<ListView>,
 
     #[template_child]
-    pub budget_details_available: TemplateChild<ExpanderRow>,
+    pub transactions_list_box: TemplateChild<ListBox>,
+
+    #[template_child]
+    pub budget_details_available: TemplateChild<ActionRow>,
 
     #[template_child]
     pub budget_total_expense: TemplateChild<Label>,
@@ -38,10 +41,10 @@ pub struct Window {
     pub budget_unallocated: TemplateChild<Label>,
 
     #[template_child]
-    pub budget_total_income: TemplateChild<Label>,
+    pub budget_allocated: TemplateChild<Label>,
 
     #[template_child]
-    pub expense_category_list_view: TemplateChild<ListBox>,
+    pub budget_total_income: TemplateChild<Label>,
 
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub expense_categories: RefCell<Option<gio::ListStore>>,
@@ -50,6 +53,11 @@ pub struct Window {
     pub budget: RefCell<BudgetAccount>,
 }
 
+impl Window {
+    pub fn total_balance(&self) -> f32 {
+        self.budget.borrow().total_balance()
+    }
+}
 
 // The central trait for subclassing a GObject
 #[glib::object_subclass]
@@ -76,6 +84,7 @@ impl ObjectImpl for Window {
         let obj = self.obj();
         obj.setup_budget_account();
         obj.update_budget_details();
+        obj.setup_transactions();
         obj.setup_actions();
         obj.setup_callbacks();
     }

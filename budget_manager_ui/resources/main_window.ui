@@ -81,89 +81,113 @@
                                     <class name="boxed-list"/>
                                 </style>
                                 <child>
-                                    <object class="AdwExpanderRow" id="budget_details_available">
+                                    <object class="AdwActionRow" id="budget_details_available">
                                         <property name="title" translatable="yes">0.0</property>
-                                        <property name="subtitle" translatable="yes">Available
+                                        <property name="subtitle"
+                                                  translatable="yes">Available
                                         </property>
                                         <style>
-                                            <class name="title-3"/>
+                                            <class name="title-2"/>
+                                        </style>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkBox">
+                                        <property name="margin-start">10</property>
+                                        <property name="margin-end">10</property>
+                                        <property name="margin-top">12</property>
+                                        <property name="margin-bottom">12</property>
+                                        <property name="hexpand">True</property>
+                                        <property name="spacing">6</property>
+                                        <property name="homogeneous">True</property>
+                                        <style>
+                                            <class name="title-4"/>
                                         </style>
                                         <child>
                                             <object class="GtkBox">
-                                                <property name="margin-start">10</property>
-                                                <property name="margin-end">10</property>
-                                                <property name="margin-top">12</property>
-                                                <property name="margin-bottom">12</property>
-                                                <property name="hexpand">True</property>
                                                 <property name="spacing">6</property>
                                                 <property name="homogeneous">True</property>
+                                                <property name="orientation">vertical</property>
                                                 <child>
-                                                    <object class="GtkBox">
-                                                        <property name="spacing">6</property>
-                                                        <property name="homogeneous">True</property>
-                                                        <property name="orientation">vertical</property>
-                                                        <child>
-                                                            <object class="GtkLabel" id="budget_total_income">
-                                                                <property name="label">0.0</property>
-                                                                <style>
-                                                                    <class name="success"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
-                                                        <child>
-                                                            <object class="GtkLabel">
-                                                                <property name="label">Income</property>
-                                                                <style>
-                                                                    <class name="subtitle"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
+                                                    <object class="GtkLabel" id="budget_total_income">
+                                                        <property name="label">0.0</property>
+                                                        <style>
+                                                            <class name="success"/>
+                                                        </style>
                                                     </object>
                                                 </child>
                                                 <child>
-                                                    <object class="GtkBox">
-                                                        <property name="spacing">6</property>
-                                                        <property name="homogeneous">True</property>
-                                                        <property name="orientation">vertical</property>
-                                                        <child>
-                                                            <object class="GtkLabel" id="budget_total_expense">
-                                                                <property name="label">0.0</property>
-                                                                <style>
-                                                                    <class name="error"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
-                                                        <child>
-                                                            <object class="GtkLabel">
-                                                                <property name="label">Expense</property>
-                                                                <style>
-                                                                    <class name="subtitle"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
+                                                    <object class="GtkLabel">
+                                                        <property name="label">Income</property>
+                                                        <style>
+                                                            <class name="subtitle"/>
+                                                        </style>
+                                                    </object>
+                                                </child>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkBox">
+                                                <property name="spacing">6</property>
+                                                <property name="homogeneous">True</property>
+                                                <property name="orientation">vertical</property>
+                                                <child>
+                                                    <object class="GtkLabel" id="budget_total_expense">
+                                                        <property name="label">0.0</property>
+                                                        <style>
+                                                            <class name="error"/>
+                                                        </style>
                                                     </object>
                                                 </child>
                                                 <child>
-                                                    <object class="GtkBox">
-                                                        <property name="spacing">6</property>
-                                                        <property name="homogeneous">True</property>
-                                                        <property name="orientation">vertical</property>
-                                                        <child>
-                                                            <object class="GtkLabel" id="budget_unallocated">
-                                                                <property name="label">0.0</property>
-                                                                <style>
-                                                                    <class name="warning"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
-                                                        <child>
-                                                            <object class="GtkLabel">
-                                                                <property name="label">Unallocated</property>
-                                                                <style>
-                                                                    <class name="subtitle"/>
-                                                                </style>
-                                                            </object>
-                                                        </child>
+                                                    <object class="GtkLabel">
+                                                        <property name="label">Expense</property>
+                                                        <style>
+                                                            <class name="subtitle"/>
+                                                        </style>
+                                                    </object>
+                                                </child>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkBox">
+                                                <property name="spacing">6</property>
+                                                <property name="homogeneous">True</property>
+                                                <property name="orientation">vertical</property>
+                                                <child>
+                                                    <object class="GtkLabel" id="budget_unallocated">
+                                                        <property name="label">0.0</property>
+                                                        <style>
+                                                            <class name="warning"/>
+                                                        </style>
+                                                    </object>
+                                                </child>
+                                                <child>
+                                                    <object class="GtkLabel">
+                                                        <property name="label">Unallocated</property>
+                                                        <style>
+                                                            <class name="subtitle"/>
+                                                        </style>
+                                                    </object>
+                                                </child>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkBox">
+                                                <property name="spacing">6</property>
+                                                <property name="homogeneous">True</property>
+                                                <property name="orientation">vertical</property>
+                                                <child>
+                                                    <object class="GtkLabel" id="budget_allocated">
+                                                        <property name="label">0.0</property>
+                                                    </object>
+                                                </child>
+                                                <child>
+                                                    <object class="GtkLabel">
+                                                        <property name="label">Allocated</property>
+                                                        <style>
+                                                            <class name="subtitle"/>
+                                                        </style>
                                                     </object>
                                                 </child>
                                             </object>
@@ -177,22 +201,25 @@
                                 <property name="vexpand">True</property>
                                 <property name="min-content-height">360</property>
                                 <property name="child">
-                                    <object class="GtkListBox" id="transactions_list">
-                                        <property name="selection-mode">none</property>
-                                        <style>
-                                            <class name="boxed-list"/>
-                                        </style>
+                                    <object class="GtkBox">
+                                        <property name="orientation">vertical</property>
+                                        <child>
+                                            <object class="GtkListView" id="transactions_list">
+                                                <property name="show-separators">True</property>
+                                                <style>
+                                                    <class name="data-table"/>
+                                                </style>
+                                            </object>
+                                        </child>
+                                        <child>
+                                            <object class="GtkListBox" id="transactions_list_box">
+                                                <style>
+                                                    <class name="boxed-list"/>
+                                                </style>
+                                            </object>
+                                        </child>
                                     </object>
                                 </property>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="GtkListBox" id="expense_category_list_view">
-                                <property name="visible">False</property>
-                                <property name="selection-mode">none</property>
-                                <style>
-                                    <class name="boxed-list"/>
-                                </style>
                             </object>
                         </child>
                     </object>

@@ -116,10 +116,6 @@ impl BudgetAccount {
             .unwrap()
     }
 
-    pub fn unallocated(&self) -> f32 {
-        self.categories.get(DEFAULT_CATEGORY).unwrap().allocated()
-    }
-
 
     pub fn find_or_create_category_by_name(&mut self, category_name: &str) -> &mut TransactionCategory {
         self.categories
@@ -161,9 +157,20 @@ impl BudgetAccount {
         self.transactions.iter().filter(|v| !v.is_income()).map(|v| v.amount()).sum::<f32>() * -1.
     }
 
+    pub fn allocated(&self) -> f32 {
+        self.categories.iter()
+            .filter(|(k, v)| v.name() != DEFAULT_CATEGORY)
+            .map(|(k, v)| {
+                v.allocated()
+            }).sum::<f32>()
+    }
 
-    pub fn all_transactions(&self) -> Vec<Transaction> {
-        self.transactions.clone()
+    pub fn unallocated(&self) -> f32 {
+        self.total_balance() - self.categories.get(DEFAULT_CATEGORY).unwrap().allocated()
+    }
+
+    pub fn all_transactions(&self) -> &Vec<Transaction> {
+        &self.transactions
     }
 }
 
@@ -183,10 +190,10 @@ pub mod tests {
     #[test]
     fn get_all_transactions() {
         let mut budget = new_budget();
-        let transactions: Vec<Transaction> = budget.all_transactions();
+        let transactions = budget.all_transactions();
         assert_eq!(transactions.len(), 0);
         budget.add_transaction(Some("Bills"), -2000.0, "someone", "test");
-        let transactions: Vec<Transaction> = budget.all_transactions();
+        let transactions = budget.all_transactions();
         assert_eq!(transactions.len(), 1);
     }
 

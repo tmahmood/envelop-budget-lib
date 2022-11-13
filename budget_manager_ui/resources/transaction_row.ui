@@ -57,7 +57,7 @@
                                     <object class="GtkLabel" id="amount_label">
                                         <property name="yalign">0</property>
                                         <style>
-                                            <class name="title-3"/>
+                                            <class name="title-4"/>
                                         </style>
                                     </object>
                                 </child>

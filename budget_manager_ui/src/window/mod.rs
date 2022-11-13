@@ -8,7 +8,7 @@ use adw::ffi::AdwHeaderBar;
 use adw::gio::Settings;
 use adw::glib::{BindingFlags, closure_local};
 use adw::prelude::ComboRowExt;
-use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch};
+use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch, ListStore};
 use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
@@ -45,10 +45,34 @@ impl Window {
         budget.new_income(None, 5000., "Work", "Some payment");
         budget.new_income(Some("Travel"), 400., "UP", "Salary");
         // end stab
+
+
+        self.imp().budget.replace(budget);
+    }
+
+    fn setup_transactions(&self) {
+        let budget = self.imp().budget.borrow();
         let model = gio::ListStore::new(TransactionObject::static_type());
+        budget.all_transactions().iter().for_each(|transaction| {
+            let transaction_object = TransactionObject::from_transaction_data(transaction);
+            model.append(&transaction_object);
+        });
         self.imp().transactions.replace(Some(model));
+        if budget.all_transactions().len() > 1000 {
+            self.imp().transactions_list_box.set_visible(false);
+            self.imp().transactions_list.set_visible(true);
+            self.set_list_view();
+        } else {
+            self.imp().transactions_list_box.set_visible(true);
+            self.imp().transactions_list.set_visible(false);
+            self.set_list_box();
+        }
+    }
+
+    fn set_list_box(&self) {
+        let model = self.transactions();
         let selection_model = NoSelection::new(Some(&self.transactions()));
-        self.imp().transactions_list.bind_model(
+        self.imp().transactions_list_box.bind_model(
             Some(&selection_model),
             clone!(@weak self as window => @default-panic, move |obj| {
                 let transaction_obj = obj.downcast_ref().expect("The object should be of type `TransactionObject`.");
@@ -63,19 +87,44 @@ impl Window {
                 window.set_transactions_list_visible(transactions);
             }),
         );
-        budget.all_transactions().iter().for_each(|transaction| {
-            let transaction_object = TransactionObject::from_transaction_data(transaction);
-            transactions.append(&transaction_object);
+    }
+
+    fn set_list_view(&self) {
+        let model = self.transactions();
+
+        let factory = SignalListItemFactory::new();
+
+        let list_view = self.imp()
+            .transactions_list
+            .get();
+
+        factory.connect_setup(move |_factory, item| {
+            let item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            let row = TransactionRow::new();
+            item.set_child(Some(&row));
         });
 
-        self.imp().budget.replace(budget);
+        // the bind stage is used for "binding" the data to the created widgets on the "setup" stage
+        factory.connect_bind(move |_factory, item| {
+            let item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            let transaction = item.item().unwrap().downcast::<TransactionObject>().unwrap();
+            let child = item.child().unwrap().downcast::<TransactionRow>().unwrap();
+            child.set_transaction_row(&transaction);
+        });
+
+        let selection_model = gtk::NoSelection::new(Some(&model));
+        list_view.set_model(Some(&selection_model));
+        list_view.set_factory(Some(&factory));
     }
 
     fn update_budget_details(&self) {
+        // I think it's possible to improve this, by using binding. But I'm not enough advanced to
+        // make it work, yet.
         let mut budget = self.imp().budget.borrow_mut();
 
         let budget_details_available = self.imp().budget_details_available.get();
         budget_details_available.set_title(&budget.total_balance().to_string());
+        budget_details_available.set_subtitle("Available");
 
         let budget_total_income = self.imp().budget_total_income.get();
         budget_total_income.set_text(&budget.total_income().to_string());
@@ -85,6 +134,9 @@ impl Window {
 
         let budget_unallocated = self.imp().budget_unallocated.get();
         budget_unallocated.set_text(&budget.unallocated().to_string());
+
+        let budget_allocated = self.imp().budget_allocated.get();
+        budget_allocated.set_text(&budget.allocated().to_string());
     }
 
 
@@ -120,7 +172,7 @@ impl Window {
     /// Assure that `transactions_list` is only visible
     /// if the number of tasks is greater than 0
     fn set_transactions_list_visible(&self, transactions: &gio::ListStore) {
-        self.imp().transactions_list.set_visible(transactions.n_items() > 0);
+        self.imp().transactions_list_box.set_visible(transactions.n_items() > 0);
     }
 
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
