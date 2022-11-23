@@ -25,12 +25,4 @@ impl TransactionRow {
     pub fn new() -> Self {
         Object::builder().build()
     }
-
-    pub fn set_transaction_row(&self, transaction: &TransactionObject) {
-        self.imp().note_label.get().set_text(&transaction.note());
-        self.imp().category_name_label.get().set_text(&transaction.category_name());
-        self.imp().amount_label.get().set_text(&transaction.only_amount().to_string());
-        self.imp().payee_label.get().set_text(&transaction.payee());
-
-    }
 }

@@ -14,9 +14,9 @@
                 <property name="spacing">6</property>
                 <child>
                     <object class="GtkBox">
-                        <property name="spacing">6</property>
+                        <property name="spacing">12</property>
                         <child>
-                            <object class="GtkImage" id="transaction_type" />
+                            <object class="GtkImage" id="transaction_type"/>
                         </child>
                         <child>
                             <object class="GtkBox">
@@ -30,8 +30,9 @@
                                         <property name="wrap">True</property>
                                         <property name="wrap-mode">word-char</property>
                                         <property name="use-markup">True</property>
+                                        <property name="label">Payee</property>
                                         <style>
-                                            <class name="title"/>
+                                            <class name="subtitle"/>
                                         </style>
                                     </object>
                                 </child>
@@ -43,6 +44,19 @@
                                         <property name="wrap-mode">word-char</property>
                                         <property name="xalign">0</property>
                                         <property name="use-markup">True</property>
+                                        <property name="label">Note</property>
+                                        <style>
+                                            <class name="title"/>
+                                        </style>
+                                    </object>
+                                </child>
+                                <child>
+                                    <object class="GtkLabel" id="date_created_label">
+                                        <property name="xalign">0</property>
+                                        <property name="ellipsize">none</property>
+                                        <property name="lines">0</property>
+                                        <property name="use-markup">True</property>
+                                        <property name="label">Date Created</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -55,14 +69,16 @@
                                 <property name="orientation">vertical</property>
                                 <child>
                                     <object class="GtkLabel" id="amount_label">
+                                        <property name="label">0000.0000</property>
                                         <property name="yalign">0</property>
                                         <style>
-                                            <class name="title-4"/>
+                                            <class name="caption-heading"/>
                                         </style>
                                     </object>
                                 </child>
                                 <child>
                                     <object class="GtkLabel" id="category_name_label">
+                                        <property name="label">Category Name</property>
                                         <property name="halign">end</property>
                                         <style>
                                             <class name="dim-label"/>

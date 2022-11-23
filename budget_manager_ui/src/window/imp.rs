@@ -26,13 +26,10 @@ pub struct Window {
     pub add_transaction_details: TemplateChild<Button>,
 
     #[template_child]
-    pub transactions_list: TemplateChild<ListView>,
+    pub transactions_list: TemplateChild<ListBox>,
 
     #[template_child]
-    pub transactions_list_box: TemplateChild<ListBox>,
-
-    #[template_child]
-    pub budget_details_available: TemplateChild<ActionRow>,
+    pub budget_details_available: TemplateChild<Label>,
 
     #[template_child]
     pub budget_total_expense: TemplateChild<Label>,
@@ -54,8 +51,8 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn total_balance(&self) -> f32 {
-        self.budget.borrow().total_balance()
+    pub fn total_balance(&self) -> f64 {
+        self.budget.borrow().actual_total_balance()
     }
 }
 

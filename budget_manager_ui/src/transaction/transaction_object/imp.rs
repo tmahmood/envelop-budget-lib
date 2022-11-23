@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use adw::glib::{ParamSpecBoolean, ParamSpecFloat, ParamSpecString};
+use adw::glib::{ParamSpecBoolean, ParamSpecDouble, ParamSpecFloat, ParamSpecInt, ParamSpecString};
 use gtk::glib::once_cell::sync::Lazy;
 use budget_manager::budgeting::transaction::Transaction;
 
@@ -28,9 +28,10 @@ impl ObjectImpl for TransactionObject {
             vec![
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
-                ParamSpecFloat::builder("amount").default_value(0.0).build(),
-                ParamSpecString::builder("category-name").default_value(budget_manager::DEFAULT_CATEGORY).build(),
-                ParamSpecFloat::builder("only-amount").build(),
+                ParamSpecDouble::builder("amount").default_value(0.0).build(),
+                ParamSpecInt::builder("category-id").default_value(1).build(),
+                ParamSpecDouble::builder("only-amount").build(),
+                ParamSpecString::builder("date-created").build(),
             ]
         });
         PROPERTIES.as_ref()
@@ -52,11 +53,15 @@ impl ObjectImpl for TransactionObject {
                     .expect("The value needs to be of type `float`.");
                 self.data.borrow_mut().set_amount(input_value);
             },
-            "category-name" => {
+            "category-id" => {
                 let input_value = value.get().expect("the value needs to be of type `string`.");
-                self.data.borrow_mut().set_category_name(input_value);
+                self.data.borrow_mut().set_category_id(input_value);
             }
             "only-amount" => {},
+            "date-created" => {
+                let input_value = value.get().expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().set_date_created_from_str(input_value);
+            }
             _ => unimplemented!(),
         }
     }
@@ -67,7 +72,8 @@ impl ObjectImpl for TransactionObject {
             "amount" => self.data.borrow().amount().to_value(),
             "payee" => self.data.borrow().payee().to_value(),
             "only-amount" => self.data.borrow().only_amount().to_value(),
-            "category-name" => self.data.borrow().category_name().to_value(),
+            "category-id" => self.data.borrow().transaction_category_id().to_value(),
+            "date-created" => self.data.borrow().date_created_str().to_value(),
             _ => unimplemented!(),
         }
     }

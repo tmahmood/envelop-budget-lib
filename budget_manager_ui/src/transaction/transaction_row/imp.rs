@@ -9,6 +9,8 @@ use adw::ActionRow;
 #[derive(Default, CompositeTemplate)]
 #[template(file = "../../../resources/transaction_row.ui")]
 pub struct TransactionRow {
+    #[template_child]
+    pub date_created_label: TemplateChild<Label>,
 
     #[template_child]
     pub note_label: TemplateChild<Label>,

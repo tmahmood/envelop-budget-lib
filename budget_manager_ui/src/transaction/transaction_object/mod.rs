@@ -10,19 +10,20 @@ glib::wrapper! {
 }
 
 impl TransactionObject {
-    pub fn new(payee: String, note: String, amount: f32, category: &str) -> Self {
+    pub fn new(payee: String, note: String, amount: f64, category: i32, date_created: String) -> Self {
         let only_amount = if amount > 0. { amount } else { -1. * amount };
         Object::builder()
             .property("payee", &payee)
             .property("note", &note)
             .property("amount", &amount)
             .property("only-amount", &only_amount)
-            .property("category-name", &category)
+            .property("category-id", &category)
+            .property("date-created", &date_created)
             .build()
     }
 
-    pub fn category_name(&self) -> String {
-        self.imp().data.borrow().category_name().to_string()
+    pub fn category_id(&self) -> String {
+        self.imp().data.borrow().transaction_category_id().to_string()
     }
 
     pub fn payee(&self) -> String {
@@ -33,24 +34,26 @@ impl TransactionObject {
         self.imp().data.borrow().note()
     }
 
-    pub fn amount(&self) -> f32 {
+    pub fn amount(&self) -> f64 {
         self.imp().data.borrow().amount()
     }
 
-    pub fn only_amount(&self) -> f32 {
+    pub fn only_amount(&self) -> f64 {
         self.imp().data.borrow().only_amount()
     }
 
     pub fn is_income(&self) -> bool {
-        self.imp().data.borrow().is_income()
+        self.imp().data.borrow().income()
     }
+
 
     pub fn from_transaction_data(transaction_data: &Transaction) -> Self {
         Self::new(
             transaction_data.payee(),
             transaction_data.note(),
             transaction_data.amount(),
-            transaction_data.category_name(),
+            transaction_data.transaction_category_id(),
+            transaction_data.date_created_str()
         )
     }
 }
