@@ -22,13 +22,14 @@ pub enum Error {
     CategoryNotFound,
     #[error("Category already exists")]
     CategoryAlreadyExists,
-    #[error("Transaction Category update failed")]
+    #[error("Category update failed")]
     CategoryUpdateFailed,
 }
 
 use crate::budgeting::transaction::{Transaction, TransactionBuilder};
-use crate::budgeting::transaction_category::{TransactionCategory, TransactionCategoryBuilder};
+use crate::budgeting::transaction_category::{Category, CategoryBuilder};
 use crate::{current_date, establish_connection, DEFAULT_CATEGORY};
+use crate::transaction_op::TransactionOp;
 
 /// Budget is used to store all the transaction categories and store their details in a file
 #[derive(Default, Serialize, Deserialize, Queryable, Debug, Identifiable, Clone)]
@@ -41,12 +42,12 @@ pub struct BudgetAccount {
 }
 
 impl BudgetAccount {
-    pub(crate) fn create_and_allocate(
+    pub(crate) fn create_category_and_allocate(
         &mut self,
         conn: &mut SqliteConnection,
         category: &str,
         allocate: f64,
-    ) -> Result<TransactionCategory, Error> {
+    ) -> Result<Category, Error> {
         let t = self
             .category_builder(category)
             .allocated(allocate)
@@ -142,16 +143,6 @@ impl BudgetAccount {
         budget_accounts.find(id).first(conn).unwrap()
     }
 
-    pub(crate) fn new_expense_to_category(
-        &self,
-        conn: &mut SqliteConnection,
-        category_name: &str,
-        amount: f64,
-    ) -> Result<TransactionBuilder, Error> {
-        let category = self.find_category(conn, &category_name)?;
-        Ok(category.new_expense(amount))
-    }
-
     pub fn get_new_budget_account(&self) -> NewBudgetAccount {
         NewBudgetAccount {
             filed_as: self.filed_as.as_str(),
@@ -160,12 +151,12 @@ impl BudgetAccount {
         }
     }
 
-    pub fn default_category(&self, conn: &mut SqliteConnection) -> TransactionCategory {
-        imp_db!(transaction_categories);
-        transaction_categories
+    pub fn default_category(&self, conn: &mut SqliteConnection) -> Category {
+        imp_db!(categories);
+        categories
             .filter(budget_account_id.eq(self.id))
             .filter(name.eq(DEFAULT_CATEGORY))
-            .first::<TransactionCategory>(conn)
+            .first::<Category>(conn)
             .unwrap()
     }
 
@@ -196,16 +187,16 @@ impl BudgetAccount {
             .unwrap()
             .new_income(amount)
             .payee(&format!("{}", dest))
-            .note(&format!("Received from {}", dest))
+            .note(&format!("Received from {}", src))
             .done(conn);
         Ok(())
     }
 
-    pub fn categories(&self, conn: &mut SqliteConnection) -> Vec<TransactionCategory> {
-        imp_db!(transaction_categories);
-        TransactionCategory::belonging_to(&self)
+    pub fn categories(&self, conn: &mut SqliteConnection) -> Vec<Category> {
+        imp_db!(categories);
+        Category::belonging_to(&self)
             .filter(name.ne(DEFAULT_CATEGORY))
-            .load::<TransactionCategory>(conn)
+            .load::<Category>(conn)
             .unwrap()
     }
 
@@ -215,18 +206,18 @@ impl BudgetAccount {
             .balance(conn)
     }
 
-    pub fn category_builder(&mut self, category_name: &str) -> TransactionCategoryBuilder {
-        TransactionCategoryBuilder::new(self.id, category_name)
+    pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
+        CategoryBuilder::new(self.id, category_name)
     }
 
     pub fn find_category(
         &self,
         conn: &mut SqliteConnection,
         category_name: &str,
-    ) -> Result<TransactionCategory, Error> {
-        imp_db!(transaction_categories);
+    ) -> Result<Category, Error> {
+        imp_db!(categories);
         imp_db!(budget_accounts);
-        let result: QueryResult<TransactionCategory> = TransactionCategory::belonging_to(&self)
+        let result: QueryResult<Category> = Category::belonging_to(&self)
             .filter(name.eq(category_name))
             .filter(budget_account_id.eq(self.id))
             .first(conn);
@@ -243,8 +234,8 @@ impl BudgetAccount {
     }
 
     pub fn total_allocated(&self, conn: &mut SqliteConnection) -> f64 {
-        imp_db!(transaction_categories);
-        let result_option: QueryResult<Option<f64>> = transaction_categories::table
+        imp_db!(categories);
+        let result_option: QueryResult<Option<f64>> = categories::table
             .select(sum(allocated))
             .filter(name.ne(DEFAULT_CATEGORY))
             .filter(budget_account_id.eq(self.id))
@@ -330,15 +321,13 @@ pub mod tests {
         let mut dd = DbDropper::new();
         let mut conn = dd.conn();
         let mut budget = BudgetAccountBuilder::new("main").balance(10000.).done(conn);
-        // now allocate some money
         budget
-            .create_and_allocate(conn, "Bills", BILLS)
+            .create_category_and_allocate(conn, "Bills", BILLS)
             .expect("Failed to create category");
         budget
-            .create_and_allocate(conn, "Travel", TRAVEL)
+            .create_category_and_allocate(conn, "Travel", TRAVEL)
             .expect("Failed to create category");
         let r = budget.default_category(conn).transactions(conn);
-        println!("{:#?}", r);
         assert_eq!(budget.uncategorized_balance(conn), 5000.);
     }
 
@@ -464,7 +453,7 @@ pub mod tests {
         let mut conn = dd.conn();
         let mut budget = new_budget(&mut conn);
         let home = {
-            let home = budget.create_and_allocate(conn, "Home", 3000.).unwrap();
+            let home = budget.create_category_and_allocate(conn, "Home", 3000.).unwrap();
             assert_eq!(home.allocated(), 3000.0);
             assert_eq!(home.balance(conn), 3000.0);
             home

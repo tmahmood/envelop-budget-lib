@@ -1,4 +1,4 @@
-use crate::budgeting::transaction_category::TransactionCategory;
+use crate::budgeting::transaction_category::Category;
 use crate::{current_date, establish_connection, parse_date};
 use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
     Associations,
     Identifiable,
 )]
-#[diesel(belongs_to(TransactionCategory))]
+#[diesel(belongs_to(Category))]
 pub struct Transaction {
     id: i32,
     note: String,
@@ -25,7 +25,7 @@ pub struct Transaction {
     income: bool,
     #[diesel(sql_type = Double)]
     amount: f64,
-    transaction_category_id: i32,
+    category_id: i32,
 }
 
 impl Transaction {
@@ -43,12 +43,12 @@ impl Transaction {
             amount,
             income: amount > 0.,
             date_created,
-            transaction_category_id: category_id,
+            category_id: category_id,
         }
     }
 
-    pub fn transaction_category_id(&self) -> i32 {
-        self.transaction_category_id
+    pub fn category_id(&self) -> i32 {
+        self.category_id
     }
 
     pub fn amount(&self) -> f64 {
@@ -90,7 +90,7 @@ impl Transaction {
     }
 
     pub fn set_category_id(&mut self, category_id: i32) {
-        self.transaction_category_id = category_id;
+        self.category_id = category_id;
     }
 
     pub fn id(&self) -> i32 {
@@ -120,7 +120,7 @@ impl Transaction {
             amount: self.amount,
             date_created: self.date_created,
             income: self.income,
-            transaction_category_id: self.transaction_category_id,
+            category_id: self.category_id,
         }
     }
 
@@ -134,9 +134,6 @@ impl Transaction {
             .expect("Error saving new transaction");
         let results = transactions.limit(1).load::<Transaction>(conn).unwrap();
     }
-    pub fn set_transaction_category_id(&mut self, transaction_category_id: i32) {
-        self.transaction_category_id = transaction_category_id;
-    }
 }
 
 use crate::schema::transactions;
@@ -149,7 +146,7 @@ pub struct NewTransaction<'a> {
     pub date_created: NaiveDateTime,
     pub income: bool,
     pub amount: f64,
-    pub transaction_category_id: i32,
+    pub category_id: i32,
 }
 
 pub struct TransactionBuilder {
@@ -219,7 +216,7 @@ impl TransactionBuilder {
             date_created: self.date_created.unwrap_or(current_date()),
             income: self.income,
             amount: signed_amount,
-            transaction_category_id: self.category_id.unwrap(),
+            category_id: self.category_id.unwrap(),
         };
         imp_db!(transactions);
         diesel::insert_into(transactions::table)

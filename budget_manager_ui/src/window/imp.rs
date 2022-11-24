@@ -51,8 +51,8 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn total_balance(&self) -> f64 {
-        self.budget.borrow().actual_total_balance()
+    pub fn total_balance(&mut self) -> f64 {
+        self.budget.borrow().actual_total_balance(self.conn.get_mut())
     }
 }
 

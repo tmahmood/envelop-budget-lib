@@ -72,7 +72,7 @@ impl ObjectImpl for TransactionObject {
             "amount" => self.data.borrow().amount().to_value(),
             "payee" => self.data.borrow().payee().to_value(),
             "only-amount" => self.data.borrow().only_amount().to_value(),
-            "category-id" => self.data.borrow().transaction_category_id().to_value(),
+            "category-id" => self.data.borrow().category_id().to_value(),
             "date-created" => self.data.borrow().date_created_str().to_value(),
             _ => unimplemented!(),
         }

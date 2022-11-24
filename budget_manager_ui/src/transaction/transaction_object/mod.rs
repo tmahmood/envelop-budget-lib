@@ -23,7 +23,7 @@ impl TransactionObject {
     }
 
     pub fn category_id(&self) -> String {
-        self.imp().data.borrow().transaction_category_id().to_string()
+        self.imp().data.borrow().category_id().to_string()
     }
 
     pub fn payee(&self) -> String {
@@ -52,7 +52,7 @@ impl TransactionObject {
             transaction_data.payee(),
             transaction_data.note(),
             transaction_data.amount(),
-            transaction_data.transaction_category_id(),
+            transaction_data.category_id(),
             transaction_data.date_created_str()
         )
     }

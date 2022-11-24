@@ -1,7 +1,7 @@
 use crate::budgeting::budget_account::BudgetAccount;
 use crate::budgeting::transaction::{Transaction, TransactionBuilder};
 use crate::budgeting::transaction_category;
-use crate::schema::transaction_categories;
+use crate::schema::categories;
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::sqlite::Sqlite;
@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
     Identifiable,
 )]
 #[diesel(belongs_to(BudgetAccount))]
-#[diesel(table_name = transaction_categories)]
-pub struct TransactionCategory {
+#[diesel(table_name = categories)]
+pub struct Category {
     id: i32,
     name: String,
     allocated: f64,
@@ -29,7 +29,7 @@ pub struct TransactionCategory {
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = transaction_categories)]
+#[diesel(table_name = categories)]
 pub struct NewTransactionCategory<'a> {
     name: &'a str,
     allocated: f64,
@@ -38,13 +38,13 @@ pub struct NewTransactionCategory<'a> {
 
 /// Only way to create transaction category.
 /// as we need to maintain the budget_account_id
-pub struct TransactionCategoryBuilder {
+pub struct CategoryBuilder {
     name: String,
     allocated: f64,
     budget_account_id: i32,
 }
 
-impl TransactionCategory {
+impl Category {
     fn new_transaction(&self, amount: f64, income: bool) -> TransactionBuilder {
         let mut tb = if income {
             TransactionBuilder::new_income(amount)
@@ -63,24 +63,24 @@ impl TransactionCategory {
     }
 
     pub(crate) fn delete(conn: &mut SqliteConnection, id: i32) -> usize {
-        imp_db!(transaction_categories);
-        diesel::delete(transaction_categories.filter(id.eq(&id)))
+        imp_db!(categories);
+        diesel::delete(categories.filter(id.eq(&id)))
             .execute(conn)
             .expect("Error deleting transaction category")
     }
 
-    pub fn load(conn: &mut SqliteConnection, id: i32) -> QueryResult<TransactionCategory> {
-        imp_db!(transaction_categories);
-        transaction_categories.find(id).first(conn)
+    pub fn load(conn: &mut SqliteConnection, id: i32) -> QueryResult<Category> {
+        imp_db!(categories);
+        categories.find(id).first(conn)
     }
 
     pub fn find_by_name(
         conn: &mut SqliteConnection,
         name: &str,
         budget_account_id: i32,
-    ) -> QueryResult<TransactionCategory> {
-        imp_db!(transaction_categories);
-        transaction_categories
+    ) -> QueryResult<Category> {
+        imp_db!(categories);
+        categories
             .filter(budget_account_id.eq(&budget_account_id))
             .filter(name.eq(name))
             .first(conn)
@@ -89,7 +89,7 @@ impl TransactionCategory {
     pub fn transactions(&self, conn: &mut SqliteConnection) -> Vec<Transaction> {
         imp_db!(transactions);
         transactions
-            .filter(transaction_category_id.eq(self.id))
+            .filter(category_id.eq(self.id))
             .load::<Transaction>(conn)
             .unwrap()
     }
@@ -107,8 +107,8 @@ impl TransactionCategory {
         conn: &mut SqliteConnection,
         new_allocation: f64,
     ) -> QueryResult<usize> {
-        imp_db!(transaction_categories);
-        diesel::update(transaction_categories)
+        imp_db!(categories);
+        diesel::update(categories)
             .set(allocated.eq(new_allocation))
             .execute(conn)
     }
@@ -129,7 +129,7 @@ impl TransactionCategory {
         imp_db!(transactions);
         let result_option: QueryResult<Option<f64>> = transactions::table
             .select(sum(amount))
-            .filter(transaction_category_id.eq(self.id))
+            .filter(category_id.eq(self.id))
             .filter(amount.gt(0.))
             .first::<Option<f64>>(conn);
         return_sum!(result_option)
@@ -139,7 +139,7 @@ impl TransactionCategory {
         imp_db!(transactions);
         let result_option = transactions::table
             .select(sum(amount))
-            .filter(transaction_category_id.eq(self.id))
+            .filter(category_id.eq(self.id))
             .filter(amount.lt(0.))
             .first::<Option<f64>>(conn);
         return_sum!(result_option)
@@ -149,7 +149,7 @@ impl TransactionCategory {
         imp_db!(transactions);
         let result_option: QueryResult<Option<f64>> = transactions::table
             .select(sum(amount))
-            .filter(transaction_category_id.eq(self.id))
+            .filter(category_id.eq(self.id))
             .first::<Option<f64>>(conn);
         return_sum!(result_option)
     }
@@ -159,7 +159,7 @@ impl TransactionCategory {
     }
 }
 
-impl TransactionCategoryBuilder {
+impl CategoryBuilder {
     pub fn new(budget_account_id: i32, name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -174,21 +174,21 @@ impl TransactionCategoryBuilder {
     }
 
     // put the transaction category details together and save to database, returned the saved transaction
-    pub fn done(&mut self, conn: &mut SqliteConnection) -> TransactionCategory {
+    pub fn done(&mut self, conn: &mut SqliteConnection) -> Category {
         let mut t = NewTransactionCategory {
             name: self.name.as_str(),
             allocated: self.allocated,
             budget_account_id: self.budget_account_id,
         };
-        imp_db!(transaction_categories);
-        diesel::insert_into(transaction_categories::table)
+        imp_db!(categories);
+        diesel::insert_into(categories::table)
             .values(&t)
             .execute(conn)
             .expect("Error saving new category");
-        transaction_categories
+        categories
             .order(id.desc())
             .limit(1)
-            .first::<TransactionCategory>(conn)
+            .first::<Category>(conn)
             .unwrap()
     }
 }
@@ -204,7 +204,7 @@ mod tests {
     fn new_transaction_category_with_transactions() {
         let mut d = DbDropper::new();
         let mut conn = d.conn();
-        let mut category = TransactionCategoryBuilder::new(1, "Testing")
+        let mut category = CategoryBuilder::new(1, "Testing")
             .allocated(6000.)
             .done(conn);
         category
@@ -239,6 +239,6 @@ mod tests {
             .note("Test Note Payee 5")
             .done(conn);
         assert_eq!(category.expense(conn), -4300.);
-        TransactionCategory::delete(&mut conn, 1);
+        Category::delete(&mut conn, 1);
     }
 }

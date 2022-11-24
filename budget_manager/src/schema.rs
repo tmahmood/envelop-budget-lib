@@ -10,7 +10,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    transaction_categories (id) {
+    categories (id) {
         id -> Integer,
         name -> Text,
         allocated -> Double,
@@ -26,15 +26,15 @@ diesel::table! {
         date_created -> Timestamp,
         income -> Bool,
         amount -> Double,
-        transaction_category_id -> Integer,
+        category_id -> Integer,
     }
 }
 
-diesel::joinable!(transaction_categories -> budget_accounts (budget_account_id));
-diesel::joinable!(transactions -> transaction_categories (transaction_category_id));
+diesel::joinable!(categories -> budget_accounts (budget_account_id));
+diesel::joinable!(transactions -> categories (category_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     budget_accounts,
-    transaction_categories,
+    categories,
     transactions,
 );

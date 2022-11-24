@@ -15,11 +15,11 @@ CREATE TABLE transactions
     date_created TIMESTAMP        NOT NULL,
     income       BOOLEAN          NOT NULL DEFAULT 0,
     amount       DOUBLE PRECISION NOT NULL,
-    transaction_category_id  INTEGER          NOT NULL,
-    FOREIGN KEY (transaction_category_id) REFERENCES transaction_categories (id) ON UPDATE CASCADE ON DELETE CASCADE
+    category_id  INTEGER          NOT NULL,
+    FOREIGN KEY (category_id) REFERENCES categories (id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
-CREATE TABLE transaction_categories
+CREATE TABLE categories
 (
     id                INTEGER          NOT NULL PRIMARY KEY,
     name              VARCHAR          NOT NULL,

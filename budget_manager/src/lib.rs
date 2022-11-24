@@ -4,6 +4,9 @@ use diesel::result::Error;
 use dotenvy::dotenv;
 use log::{debug, error, info, warn};
 use std::env;
+use std::rc::Rc;
+
+pub mod transaction_op;
 
 pub const DEFAULT_CATEGORY: &str = "Unallocated";
 
@@ -52,6 +55,7 @@ pub mod schema;
 
 use crate::budgeting::budget_account;
 use crate::budgeting::budget_account::BudgetAccount;
+use crate::transaction_op::TransactionOp;
 use budgeting::prelude::*;
 
 /// This should be used whenever date time is needed
@@ -86,15 +90,24 @@ pub fn establish_connection() -> SqliteConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
+pub(crate) fn new_transaction_to_category<'a>(
+    conn: &'a mut SqliteConnection,
+    budget: &'a mut BudgetAccount,
+    category: &'a str,
+) -> TransactionOp<'a> {
+    TransactionOp::new(conn, budget, category)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder};
     use crate::budgeting::transaction;
     use crate::budgeting::transaction::Transaction;
-    use crate::budgeting::transaction_category::TransactionCategoryBuilder;
+    use crate::budgeting::transaction_category::CategoryBuilder;
     use rand::Rng;
     use std::collections::BTreeMap;
+    use std::rc::Rc;
 
     // test all the possible things!
 
@@ -132,8 +145,8 @@ mod tests {
                     .expect("Error deleting budget accounts")
             };
             num_deleted += {
-                use crate::schema::transaction_categories::dsl::*;
-                diesel::delete(transaction_categories)
+                use crate::schema::categories::dsl::*;
+                diesel::delete(categories)
                     .execute(self.conn())
                     .expect("Error deleting transaction categories")
             };
@@ -150,9 +163,20 @@ mod tests {
     pub fn new_budget(conn: &mut SqliteConnection) -> BudgetAccount {
         let mut b = BudgetAccountBuilder::new("main").balance(10000.).done(conn);
         // this will not change the actual balance
-        b.create_and_allocate(conn, "Bills", BILLS).unwrap();
-        b.create_and_allocate(conn, "Travel", TRAVEL).unwrap();
+        b.create_category_and_allocate(conn, "Bills", BILLS).unwrap();
+        b.create_category_and_allocate(conn, "Travel", TRAVEL).unwrap();
         b
+    }
+
+    #[test]
+    fn transaction_op_struct_handles_full_transaction_details() {
+        let mut db = DbDropper::new();
+        let mut conn = db.conn();
+        let mut budget = new_budget(conn);
+        let mut d = new_transaction_to_category(conn, &mut budget, "Travel");
+        d.income(1000.).payee("Some").note("Other").done();
+        d.expense(2000.).payee("Some").note("Other").done();
+        assert_eq!(budget.category_balance(conn, "Travel"), 2000.);
     }
 
     #[test]
@@ -167,40 +191,22 @@ mod tests {
             budget.uncategorized_balance(conn),
             INITIAL - (BILLS + TRAVEL)
         );
-        // now let's made some transactions
-        let travel = budget.find_category(conn, "Travel").unwrap();
-        let bills = budget.find_category(conn, "Bills").unwrap();
-        let default = budget.find_category(conn, DEFAULT_CATEGORY).unwrap();
-        travel
-            .new_expense(1000.)
-            .payee("Some")
-            .note("Other")
-            .done(conn);
-        travel
-            .new_expense(1300.)
-            .payee("Uber")
-            .note("Other")
-            .done(conn);
-        travel
-            .new_income(400.)
-            .payee("Other")
-            .note("Other")
-            .done(conn);
-        bills
-            .new_expense(300.)
-            .payee("Some")
-            .note("Other")
-            .done(conn);
-        default
-            .new_expense(1000.)
-            .payee("Other")
-            .note("Other")
-            .done(conn);
-        default
-            .new_income(5000.)
-            .payee("Other")
-            .note("Other")
-            .done(conn);
+        // now let's do some transactions
+        {
+            let mut travel = new_transaction_to_category(conn, &mut budget, "Travel");
+            travel.expense(1000.).payee("Some").note("Other").done();
+            travel.expense(1300.).payee("Uber").note("Other").done();
+            travel.income(400.).payee("Other").note("Other").done();
+        }
+        {
+            let mut bills = new_transaction_to_category(conn, &mut budget, "Bills");
+            bills.expense(300.).payee("Some").note("Other").done();
+        }
+        {
+            let mut default = new_transaction_to_category(conn, &mut budget, DEFAULT_CATEGORY);
+            default.expense(1000.).payee("Other").note("Other").done();
+            default.income(5000.).payee("Other").note("Other").done();
+        }
         // check total balance
         assert_eq!(budget.actual_total_balance(conn), INITIAL - 3600. + 5400.);
         assert_eq!(
@@ -212,30 +218,6 @@ mod tests {
             budget.category_balance(conn, DEFAULT_CATEGORY),
             INITIAL + 5000. - 1000. - 3000. - 2000.
         );
-    }
-
-    #[test]
-    fn moving_transaction_from_one_category_to_another() {
-        let mut d = DbDropper::new();
-        let mut conn = d.conn();
-        let mut budget = new_budget(&mut conn);
-        // two transaction without categories
-        budget
-            .find_category(conn, DEFAULT_CATEGORY)
-            .unwrap()
-            .new_expense(1000.)
-            .payee("Other")
-            .note("Other")
-            .done(&mut conn);
-        budget
-            .find_category(conn, DEFAULT_CATEGORY)
-            .unwrap()
-            .new_expense(5000.)
-            .payee("Other")
-            .note("Other")
-            .done(&mut conn);
-        // we want to move the new transactions to travel
-        //budget.move_transaction(t1, "Travel");
     }
 
     pub fn generate_random_str(length: usize) -> String {

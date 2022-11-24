@@ -15,7 +15,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use budget_manager::budgeting::budget_account::BudgetAccount;
 use budget_manager::budgeting::transaction::Transaction;
-use budget_manager::budgeting::transaction_category::TransactionCategory;
+use budget_manager::budgeting::transaction_category::Category;
 use crate::APP_ID;
 use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
