@@ -5,7 +5,6 @@ diesel::table! {
         id -> Integer,
         filed_as -> Text,
         date_created -> Timestamp,
-        balance -> Double,
     }
 }
 

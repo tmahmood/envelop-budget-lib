@@ -3,8 +3,7 @@ CREATE TABLE budget_accounts
 (
     id           INTEGER          NOT NULL PRIMARY KEY,
     filed_as     VARCHAR          NOT NULL UNIQUE,
-    date_created TIMESTAMP        NOT NULL,
-    balance      DOUBLE PRECISION NOT NULL
+    date_created TIMESTAMP        NOT NULL
 );
 
 CREATE TABLE transactions

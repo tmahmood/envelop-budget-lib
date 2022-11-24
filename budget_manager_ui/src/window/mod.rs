@@ -14,8 +14,10 @@ use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::Budgeting;
 use budget_manager::budgeting::transaction::Transaction;
 use budget_manager::budgeting::transaction_category::Category;
+use budget_manager::DEFAULT_CATEGORY;
 use crate::APP_ID;
 use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
@@ -35,21 +37,24 @@ impl Window {
 
     pub fn setup_budget_account(&self) {
         // this section is a stab, in reality, it will be loaded from data file.
-        let mut budget = BudgetAccount::new("main", 10000.0, vec![
-            (2, "Bills", 3000., 3000.),
-            (3, "Travel", 2000., 2000.),
-        ]);
-        budget.new_expense(Some("Bills"), 300.34, "Uber", "someplace");
-        budget.new_expense(Some("Travel"), 1300.23, "Foodpanda", "food");
-        budget.new_expense(None, 1000., "SCB", "Card payment");
-        budget.new_income(None, 5000., "Work", "Some payment");
-        budget.new_income(Some("Travel"), 400., "UP", "Salary");
+        let mut budgeting = Budgeting::new();
+        budgeting.new_budget("main", 10000.);
+        budgeting.create_category_and_allocate("Bills", 3000.).unwrap();
+        budgeting.create_category_and_allocate("Travel", 2000.).unwrap();
+        let mut def = budgeting.new_transaction_to_category(DEFAULT_CATEGORY);
+        let mut bills = budgeting.new_transaction_to_category("Bills");
+        let mut travel = budgeting.new_transaction_to_category("Travel");
+        def.expense(1000.).note("Card Payment").payee("SCB").done();
+        bills.expense(300.34).payee("Uber").note("Someplace").done();
+        travel.expense(1300.23).payee("Foodpanda").note("Food").done();
+        travel.income(400.).payee("UP").note("Salary").done();
+        def.income(5000.).payee("Work").note("Some Payment").done();
         // end stab
-        self.imp().budget.replace(budget);
+        self.imp().budgeting.replace(budgeting);
     }
 
     fn setup_transactions(&self) {
-        let budget = self.imp().budget.borrow();
+        let budget = self.imp().budgeting.borrow();
         let model = gio::ListStore::new(TransactionObject::static_type());
         budget.transactions().iter().for_each(|transaction| {
             let transaction_object = TransactionObject::from_transaction_data(transaction);
@@ -82,7 +87,7 @@ impl Window {
     fn update_budget_details(&self) {
         // I think it's possible to improve this, by using binding. But I'm not enough advanced to
         // make it work, yet.
-        let mut budget = self.imp().budget.borrow_mut();
+        let mut budget = self.imp().budgeting.borrow_mut();
 
         let budget_details_available = self.imp().budget_details_available.get();
         budget_details_available.set_text(&format!("{:02}", budget.actual_total_balance()));
@@ -237,7 +242,7 @@ impl Window {
             // TODO must replace with actual transaction category
             let category = None;
             {
-                let mut budget = window.imp().budget.borrow_mut();
+                let mut budget = window.imp().budgeting.borrow_mut();
                 let t = if is_income {
                     budget.new_income(category, amount, &payee, &note)
                 } else {

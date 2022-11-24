@@ -17,6 +17,7 @@ use gtk::gio::glib::once_cell::sync::OnceCell;
 use gtk::glib::once_cell::sync::Lazy;
 use gtk::prelude::*;
 use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::Budgeting;
 use budget_manager::budgeting::transaction::Transaction;
 
 #[derive(CompositeTemplate, Default)]
@@ -47,12 +48,12 @@ pub struct Window {
     pub expense_categories: RefCell<Option<gio::ListStore>>,
 
     pub settings: OnceCell<Settings>,
-    pub budget: RefCell<BudgetAccount>,
+    pub budgeting: RefCell<Budgeting>,
 }
 
 impl Window {
     pub fn total_balance(&mut self) -> f64 {
-        self.budget.borrow().actual_total_balance(self.conn.get_mut())
+        self.budgeting.borrow().actual_total_balance()
     }
 }
 

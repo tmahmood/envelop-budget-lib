@@ -1,33 +1,30 @@
 use std::rc::Rc;
 use crate::budgeting::budget_account::BudgetAccount;
 use crate::budgeting::transaction::Transaction;
-use crate::budgeting::transaction_category::Category;
+use crate::budgeting::transaction_category::{Category, CategoryModel};
 use diesel::SqliteConnection;
 
-pub struct TransactionOp<'a> {
-    budget: &'a BudgetAccount,
-    category: Category,
-    conn: &'a mut SqliteConnection,
+pub struct TransactionAddToCategoryOps<'a> {
+    budget: BudgetAccount,
     amount: Option<f64>,
     payee: Option<&'a str>,
     note: Option<&'a str>,
     income: Option<bool>,
+    category_model: CategoryModel<'a>
 }
 
-impl<'a> TransactionOp<'a> {
+impl<'a> TransactionAddToCategoryOps<'a> {
     pub fn new(
-        conn: &'a mut SqliteConnection,
-        budget: &'a BudgetAccount,
-        category: &'a str,
+        budget: BudgetAccount,
+        category_model: CategoryModel<'a>,
     ) -> Self {
-        TransactionOp {
+        TransactionAddToCategoryOps {
             budget,
-            category: budget.find_category(conn, category).unwrap(),
-            conn,
             amount: None,
             payee: None,
             note: None,
             income: None,
+            category_model
         }
     }
 
@@ -67,11 +64,11 @@ impl<'a> TransactionOp<'a> {
             panic!("transaction type not set");
         }
         let mut n = if let (Some(true)) = self.income {
-            self.category.new_income(self.amount.unwrap())
+            self.category_model.new_income(self.amount.unwrap())
         } else {
-            self.category.new_expense(self.amount.unwrap())
+            self.category_model.new_expense(self.amount.unwrap())
         };
-        let t = n.payee("Some").note("Other").done(self.conn);
+        let t = n.payee("Some").note("Other").done();
         self.reset();
         t
     }

@@ -43,7 +43,7 @@ impl Transaction {
             amount,
             income: amount > 0.,
             date_created,
-            category_id: category_id,
+            category_id,
         }
     }
 
@@ -149,17 +149,18 @@ pub struct NewTransaction<'a> {
     pub category_id: i32,
 }
 
-pub struct TransactionBuilder {
+pub struct TransactionBuilder<'a>{
     income: bool,
     category_id: Option<i32>,
     note: Option<String>,
     payee: Option<String>,
     amount: f64,
     date_created: Option<NaiveDateTime>,
+    conn: &'a mut SqliteConnection,
 }
 
-impl TransactionBuilder {
-    pub(crate) fn new_income(amount: f64) -> Self {
+impl<'a>TransactionBuilder<'a>{
+    pub(crate) fn new_income(conn: &'a mut SqliteConnection, amount: f64) -> Self {
         Self {
             income: true,
             category_id: None,
@@ -167,10 +168,11 @@ impl TransactionBuilder {
             payee: None,
             amount,
             date_created: None,
+            conn,
         }
     }
 
-    pub(crate) fn new_expense(amount: f64) -> Self {
+    pub(crate) fn new_expense(conn: &'a mut SqliteConnection, amount: f64) -> Self {
         Self {
             income: false,
             category_id: None,
@@ -178,6 +180,7 @@ impl TransactionBuilder {
             payee: None,
             amount,
             date_created: None,
+            conn
         }
     }
 
@@ -201,7 +204,7 @@ impl TransactionBuilder {
         self
     }
 
-    pub fn done(&self, conn: &mut SqliteConnection) -> Transaction {
+    pub fn done(&mut self) -> Transaction {
         if self.category_id.is_none() || self.note.is_none() || self.payee.is_none() {
             panic!("Not all field set")
         }
@@ -221,12 +224,12 @@ impl TransactionBuilder {
         imp_db!(transactions);
         diesel::insert_into(transactions::table)
             .values(&new_transaction)
-            .execute(conn)
+            .execute(self.conn)
             .expect("Error saving new transaction");
         let results = transactions
             .order(id.desc())
             .limit(1)
-            .load::<Transaction>(conn)
+            .load::<Transaction>(self.conn)
             .unwrap();
         results.first().unwrap().clone()
     }
