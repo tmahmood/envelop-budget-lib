@@ -49,6 +49,7 @@ pub struct Window {
 
     pub settings: OnceCell<Settings>,
     pub budgeting: RefCell<Budgeting>,
+
 }
 
 impl Window {

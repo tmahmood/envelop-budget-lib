@@ -41,13 +41,13 @@ macro_rules! imp_db {
         use diesel::prelude::*;
     };
 }
-pub mod budget_account_op;
 ///
 /// # Envelope budgeting
 /// * We create categories and have budget for every category
 /// * We can not spend more money then what we have allocated in that category
 /// * We can transfer money from one category to other
 ///
+pub mod budget_account_op;
 pub mod budgeting;
 pub mod schema;
 pub mod transaction_op;
