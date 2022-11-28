@@ -1,7 +1,7 @@
 use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder, NewBudgetAccount};
-use crate::budgeting::transaction::Transaction;
-use crate::budgeting::transaction_category::{Category, CategoryBuilder, CategoryModel};
-use crate::budgeting::Error::CategoryNotFound;
+use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
+use crate::budgeting::transaction::{Transaction, TransactionType};
+use crate::budgeting::Error::{BudgetAccountNotFound, CategoryNotFound, FailedToCreateBudget};
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{establish_connection, DEFAULT_CATEGORY};
 use diesel::connection::BoxableConnection;
@@ -12,9 +12,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub mod budget_account;
+pub mod category;
 pub mod storage;
 pub mod transaction;
-pub mod transaction_category;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
@@ -26,6 +26,10 @@ pub enum Error {
     CategoryAlreadyExists,
     #[error("Category update failed")]
     CategoryUpdateFailed,
+    #[error("Budget Account not found")]
+    BudgetAccountNotFound(String),
+    #[error("Failed to create budget")]
+    FailedToCreateBudget(String),
 }
 
 mod builder {
@@ -36,8 +40,8 @@ mod builder {
 
 pub mod prelude {
     use super::budget_account::*;
+    use super::category::*;
     use super::transaction::*;
-    use super::transaction_category::*;
 }
 
 pub struct Budgeting {
@@ -71,12 +75,14 @@ impl Budgeting {
         amount: f64,
     ) -> Result<(), Error> {
         let mut cm = self.get_category_model(src);
-        cm.new_expense(amount)
+        self.new_transaction_to_category(src)
+            .transfer_from(amount)
             .payee(&format!("{}", dest))
             .note(&format!("Transferred to {}", dest))
             .done();
         let mut cm = self.get_category_model(dest);
-        cm.new_income(amount)
+        self.new_transaction_to_category(dest)
+            .transfer_to(amount)
             .payee(&format!("{}", dest))
             .note(&format!("Received from {}", src))
             .done();
@@ -134,14 +140,17 @@ impl Budgeting {
         b.clone()
     }
 
-    pub fn set_current_budget(&mut self, filed_as: &str) -> BudgetAccount {
+    pub fn set_current_budget(
+        &mut self,
+        filed_as: &str,
+    ) -> Result<BudgetAccount, crate::budgeting::Error> {
         let b = self.find_budget(filed_as);
         if b.is_err() {
-            panic!("Budget account with same name does not exists");
+            return Err(BudgetAccountNotFound(filed_as.to_string()));
         }
         let b = b.unwrap();
         self.budget = Some(b.clone());
-        b
+        Ok(b)
     }
 
     pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
@@ -149,23 +158,25 @@ impl Budgeting {
         CategoryBuilder::new(self.conn(), id, category_name)
     }
 
-    // TODO: Replace with Result, so that we can gracefully handle errors
-    pub fn new_budget(&mut self, filed_as: &str, amount: f64) -> BudgetAccount {
+    pub fn new_budget(
+        &mut self,
+        filed_as: &str,
+        amount: f64,
+    ) -> Result<BudgetAccount, crate::budgeting::Error> {
         let budget_account = self.find_budget(filed_as);
         if budget_account.is_ok() {
-            panic!("Budget account with same name already exists");
+            return Err(FailedToCreateBudget(filed_as.to_string()));
         }
         let mut b = BudgetAccountBuilder::new(self.conn(), "main").build();
         self.budget = Some(b.clone());
         // create the default category
-        let t = self.category_builder(DEFAULT_CATEGORY).allocated(0.).done();
-        let mut cm = self.category_model(t);
-        // create entry for initial balance in the default category
-        cm.new_income(amount)
+        self.category_builder(DEFAULT_CATEGORY).allocated(0.).done();
+        self.new_transaction_to_category(DEFAULT_CATEGORY)
+            .income(amount)
             .payee("Self")
             .note("Initial Balance")
             .done();
-        b
+        Ok(b)
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category
@@ -265,9 +276,8 @@ pub mod tests {
     use super::*;
     use crate::budgeting::transaction::Transaction;
     use crate::budgeting::Error::FundTransferError;
-    use crate::tests::{
-        new_budget_using_budgeting, DbDropper, BILLS, DEFAULT_ID, INITIAL, TRAVEL, UNUSED,
-    };
+    use crate::test_helpers::{new_budget_using_budgeting, DbDropper};
+    use crate::tests::{BILLS, DEFAULT_ID, INITIAL, TRAVEL, UNUSED};
     use diesel::prelude::*;
 
     #[test]
@@ -288,6 +298,8 @@ pub mod tests {
             .expect("Failed to create category");
         blib.create_category_and_allocate("Travel", TRAVEL)
             .expect("Failed to create category");
+        let v = blib.get_category_model(DEFAULT_CATEGORY).transactions();
+        println!("{:#?}", v);
         assert_eq!(blib.uncategorized_balance(), 5000.);
     }
 
@@ -360,10 +372,10 @@ pub mod tests {
 
     #[test]
     fn creating_category_and_do_transactions() {
-        let mut dd = DbDropper::new();
+        let _dd = DbDropper::new();
         let mut blib = Budgeting::new();
         new_budget_using_budgeting(&mut blib);
-        let home = {
+        let _home = {
             let home = blib.create_category_and_allocate("Home", 3000.).unwrap();
             assert_eq!(home.allocated(), 3000.0);
             assert_eq!(blib.category_balance("Home"), 3000.0);
@@ -380,7 +392,7 @@ pub mod tests {
         let mut cm = blib.get_category_model("Home");
         assert_eq!(cm.allocated(), 3000.);
         assert_eq!(cm.expense(), -2000.);
-        assert_eq!(cm.income(), 4000.);
+        assert_eq!(cm.income(), 1000.);
     }
 
     #[test]
@@ -391,9 +403,8 @@ pub mod tests {
         let bills_available = blib.category_balance("Bills");
         assert_eq!(bills_available, BILLS);
         assert_eq!(blib.actual_total_balance(), BILLS + TRAVEL + UNUSED);
-        let c = blib.find_category("Bills").unwrap();
-        CategoryModel::new(blib.conn(), c)
-            .new_expense(BILLS)
+        blib.new_transaction_to_category("Bills")
+            .expense(BILLS)
             .payee("someone")
             .note("test")
             .done();

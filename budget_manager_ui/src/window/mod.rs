@@ -1,27 +1,30 @@
 mod imp;
 
-use adw::prelude::*;
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use adw::{ActionRow, Application};
+use crate::new_transaction_dialog::NewTransactionDialog;
+use crate::transaction::transaction_object::TransactionObject;
+use crate::transaction::transaction_row::TransactionRow;
+use crate::APP_ID;
 use adw::ffi::AdwHeaderBar;
 use adw::gio::Settings;
-use adw::glib::{BindingFlags, closure_local};
+use adw::glib::{closure_local, BindingFlags};
 use adw::prelude::ComboRowExt;
-use gtk::{glib, gio, NoSelection, SignalListItemFactory, Entry, ListItemFactory, ListView, ListBoxRow, Label, Dialog, DialogFlags, ResponseType, ToggleButton, Switch, ListStore};
+use adw::prelude::*;
+use adw::{ActionRow, Application};
+use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::category::Category;
+use budget_manager::budgeting::transaction::Transaction;
+use budget_manager::budgeting::Budgeting;
+use budget_manager::DEFAULT_CATEGORY;
 use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use budget_manager::budgeting::budget_account::BudgetAccount;
-use budget_manager::budgeting::Budgeting;
-use budget_manager::budgeting::transaction::Transaction;
-use budget_manager::budgeting::transaction_category::Category;
-use budget_manager::DEFAULT_CATEGORY;
-use crate::APP_ID;
-use crate::new_transaction_dialog::NewTransactionDialog;
-use crate::transaction::transaction_object::TransactionObject;
-use crate::transaction::transaction_row::TransactionRow;
+use gtk::{
+    gio, glib, Dialog, DialogFlags, Entry, Label, ListBoxRow, ListItemFactory, ListStore, ListView,
+    NoSelection, ResponseType, SignalListItemFactory, Switch, ToggleButton,
+};
+use std::borrow::Borrow;
+use std::collections::HashMap;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -36,9 +39,14 @@ impl Window {
     }
 
     pub fn setup_budget_account(&self) {
+        let mut c = budget_manager::establish_connection();
+        budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
         // this section is a stab, in reality, it will be loaded from data file.
         let mut budgeting = Budgeting::new();
-        budgeting.set_current_budget("main");
+        budgeting
+            .set_current_budget("main")
+            .or_else(|_| budgeting.new_budget("main", 0.))
+            .expect("Failed to get budget account");
         self.imp().budgeting.replace(budgeting);
     }
 
@@ -54,7 +62,6 @@ impl Window {
     }
 
     fn set_list_box(&self) {
-        let model = self.transactions();
         let selection_model = NoSelection::new(Some(&self.transactions()));
         self.imp().transactions_list.bind_model(
             Some(&selection_model),
@@ -91,26 +98,26 @@ impl Window {
         budget_total_income.set_text(&format!("{:02}", budget.total_income()));
 
         let budget_total_expense = self.imp().budget_total_expense.get();
-        budget_total_expense.set_text(&format!("{:02}", budget.total_expense()));
-
+        budget_total_expense.set_text(&format!("{:02}", -1. * budget.total_expense()));
     }
-
 
     fn transactions(&self) -> gio::ListStore {
         self.imp().transactions.borrow().clone().unwrap()
     }
 
-    fn expense_category(&self) -> gio::ListStore {
-        self.imp().expense_categories.borrow().clone().unwrap()
-    }
-
     fn setup_settings(&self) {
         let settings = Settings::new(APP_ID);
-        self.imp().settings.set(settings).expect("Settings should not be set before calling `setup_settings`.")
+        self.imp()
+            .settings
+            .set(settings)
+            .expect("Settings should not be set before calling `setup_settings`.")
     }
 
     fn settings(&self) -> &Settings {
-        self.imp().settings.get().expect("Settings should be set in `setup_settings`")
+        self.imp()
+            .settings
+            .get()
+            .expect("Settings should be set in `setup_settings`")
     }
 
     pub fn save_all_settings(&self) -> Result<(), glib::BoolError> {
@@ -128,7 +135,9 @@ impl Window {
     /// Assure that `transactions_list` is only visible
     /// if the number of tasks is greater than 0
     fn set_transactions_list_visible(&self, transactions: &gio::ListStore) {
-        self.imp().transactions_list.set_visible(transactions.n_items() > 0);
+        self.imp()
+            .transactions_list
+            .set_visible(transactions.n_items() > 0);
     }
 
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
@@ -146,24 +155,28 @@ impl Window {
             row.imp().amount_label.set_css_classes(&["error"]);
             image.set_icon_name(Some("go-down"));
         }
-        transaction_object.bind_property("payee", &payee_label, "label")
+        transaction_object
+            .bind_property("payee", &payee_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-        transaction_object.bind_property("note", &note_label, "label")
+        transaction_object
+            .bind_property("note", &note_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-        transaction_object.bind_property("only_amount", &amount_label, "label")
+        transaction_object
+            .bind_property("only_amount", &amount_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-        transaction_object.bind_property("category-id", &category_name_label, "label")
+        transaction_object
+            .bind_property("category-id", &category_name_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-        transaction_object.bind_property("date-created", &date_created_label, "label")
+        transaction_object
+            .bind_property("date-created", &date_created_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         row
     }
-
 
     fn setup_actions(&self) {
         // Create action to create new collection and add to action group "win"
@@ -188,8 +201,12 @@ impl Window {
         let toggle_income = dialog.imp().toggle_income.get();
 
         let safe_entry = |dialog: &NewTransactionDialog,
-                          current_entry: &Entry, is_num: bool,
-                          e1: &Entry, e2: &Entry, e3: &Entry| -> bool {
+                          current_entry: &Entry,
+                          is_num: bool,
+                          e1: &Entry,
+                          e2: &Entry,
+                          e3: &Entry|
+         -> bool {
             let dialog_button = dialog
                 .widget_for_response(ResponseType::Accept)
                 .expect("The dialog needs to have a widget for response type `Accept`.");
@@ -225,21 +242,28 @@ impl Window {
             @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
             move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
 
-        let on_dialog_action = move |window: &Window, dialog: &NewTransactionDialog,
-                                     response: ResponseType, payee: String, note: String, amount: f64, is_income: bool| {
+        let on_dialog_action = move |window: &Window,
+                                     dialog: &NewTransactionDialog,
+                                     response: ResponseType,
+                                     payee: String,
+                                     note: String,
+                                     amount: f64,
+                                     is_income: bool| {
             dialog.destroy();
             // TODO must replace with actual transaction category
             let category = DEFAULT_CATEGORY;
             {
                 let mut budgeting = window.imp().budgeting.borrow_mut();
                 let t = if is_income {
-                    budgeting.new_transaction_to_category(category)
+                    budgeting
+                        .new_transaction_to_category(category)
                         .income(amount)
                         .payee(&payee)
                         .note(&note)
                         .done()
                 } else {
-                    budgeting.new_transaction_to_category(category)
+                    budgeting
+                        .new_transaction_to_category(category)
                         .expense(amount)
                         .payee(&payee)
                         .note(&note)
@@ -272,12 +296,15 @@ impl Window {
         });
 
         dialog.connect_closure(
-            "budget-updated", false,
-            closure_local!(move |_:NewTransactionDialog, _: i32| update_subtitle_and_other_things()));
+            "budget-updated",
+            false,
+            closure_local!(
+                move |_: NewTransactionDialog, _: i32| update_subtitle_and_other_things()
+            ),
+        );
 
         dialog.present();
     }
-
 
     fn setup_callbacks(&self) {
         // let model = self.expense_category();

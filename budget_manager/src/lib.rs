@@ -51,11 +51,10 @@ pub mod budget_account_op;
 pub mod budgeting;
 pub mod schema;
 pub mod transaction_op;
+#[cfg(test)]
+mod test_helpers;
 
-use crate::budgeting::budget_account;
-use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder};
-use crate::transaction_op::TransactionAddToCategoryOps;
-use budgeting::prelude::*;
+
 
 /// This should be used whenever date time is needed
 pub fn current_date() -> NaiveDateTime {
@@ -66,17 +65,17 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
     let f1 = "%Y-%m-%d %H:%M:%S%.f";
     let f2 = "%Y-%m-%d %H:%M:%S";
     let f3 = "%Y-%m-%d";
-    let k = NaiveDateTime::parse_from_str(&date_created, f1);
-    if k.is_ok() {
-        return k.unwrap();
+    let k = NaiveDateTime::parse_from_str(date_created, f1);
+    if let Ok(n) = k {
+        return n;
     }
-    let k = NaiveDateTime::parse_from_str(&date_created, f2);
-    if k.is_ok() {
-        return k.unwrap();
+    let k = NaiveDateTime::parse_from_str(date_created, f2);
+    if let Ok(n) = k {
+        return n;
     }
-    let k = NaiveDateTime::parse_from_str(&date_created, f3);
-    if k.is_ok() {
-        return k.unwrap();
+    let k = NaiveDateTime::parse_from_str(date_created, f3);
+    if let Ok(n) = k {
+        return n;
     }
     error!("Invalid date provided");
     NaiveDateTime::default()
@@ -85,7 +84,7 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
     let database_url = "sqlite://db.sqlite";
-    SqliteConnection::establish(&database_url)
+    SqliteConnection::establish(database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
@@ -108,12 +107,14 @@ mod tests {
     use super::*;
     use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder};
     use crate::budgeting::transaction::Transaction;
-    use crate::budgeting::transaction_category::{Category, CategoryBuilder};
-    use crate::budgeting::{transaction, Budgeting};
+    use crate::budgeting::category::{Category, CategoryBuilder};
+    use crate::budgeting::{Budgeting, transaction};
     use rand::Rng;
     use std::borrow::BorrowMut;
     use std::collections::BTreeMap;
     use std::rc::Rc;
+    use crate::test_helpers;
+    use crate::test_helpers::DbDropper;
 
     // test all the possible things!
 
@@ -125,32 +126,27 @@ mod tests {
     pub const UNUSED: f64 = 5000.;
     pub const INITIAL: f64 = 10000.;
 
-    pub fn new_budget_using_budgeting(budgeting: &mut Budgeting) {
-        budgeting.new_budget("main", 10000.);
-        budgeting
-            .create_category_and_allocate("Bills", BILLS)
-            .unwrap();
-        budgeting
-            .create_category_and_allocate("Travel", TRAVEL)
-            .unwrap();
+    #[test]
+    fn transfer_should_not_be_counted_as_income_or_expense() {
+        let dd = DbDropper::new();
+        let mut blib = Budgeting::new();
+        test_helpers::new_budget_using_budgeting(&mut blib);
+        assert_eq!(
+            blib.get_category_model("Bills").income(),
+            0.
+        );
+        assert_eq!(
+            blib.get_category_model(DEFAULT_CATEGORY).expense(),
+            0.
+        );
     }
 
-    #[test]
-    fn transaction_op_struct_handles_full_transaction_details() {
-        let mut dd = DbDropper::new();
-        let mut blib = Budgeting::new();
-        new_budget_using_budgeting(&mut blib);
-        let mut d = blib.new_transaction_to_category("Travel");
-        d.income(1000.).payee("Some").note("Other").done();
-        d.expense(2000.).payee("Some").note("Other").done();
-        assert_eq!(blib.category_balance("Travel"), 2000.);
-    }
 
     #[test]
     fn creating_budget_and_adding_transaction() {
         let mut db = DbDropper::new();
         let mut blib = Budgeting::new();
-        new_budget_using_budgeting(&mut blib);
+        test_helpers::new_budget_using_budgeting(&mut blib);
         // initial + allocation to bills * 2 + allocation to travel * 2
         assert_eq!(blib.transactions().len(), 5);
         assert_eq!(blib.actual_total_balance(), INITIAL);
@@ -188,63 +184,21 @@ mod tests {
     fn transfer_fund_from_balance() {
         let dd = DbDropper::new();
         let mut blib = Budgeting::new();
-        new_budget_using_budgeting(&mut blib);
+        test_helpers::new_budget_using_budgeting(&mut blib);
         assert!(blib.transfer_fund("Bills", "Travel", BILLS).is_ok());
-        let bills = blib.find_category("Bills").unwrap();
-        let travel = blib.find_category("Travel").unwrap();
+        //
         assert_eq!(blib.category_balance("Bills"), 0.);
         assert_eq!(blib.category_balance("Travel"), BILLS + TRAVEL);
-    }
+        //
+        let v = blib.get_category_model("Bills").transactions();
+        println!("{:?}", v);
 
-    pub fn generate_random_str(length: usize) -> String {
-        let rng = rand::thread_rng();
-        rng.sample_iter(&rand::distributions::Alphanumeric)
-            .take(length)
-            .map(char::from)
-            .collect()
-    }
-
-    pub struct DbDropper;
-
-    impl DbDropper {
-        pub(crate) fn conn(&self) -> SqliteConnection {
-            establish_connection()
-        }
-    }
-
-    impl DbDropper {
-        pub fn new() -> Self {
-            Self {}
-        }
-    }
-
-    impl Drop for DbDropper {
-        fn drop(&mut self) {
-            clear_database();
-        }
-    }
-
-    pub fn clear_database() {
-        let mut conn = establish_connection();
-        let mut num_deleted = 0;
-        num_deleted += {
-            use crate::schema::budget_accounts::dsl::*;
-            diesel::delete(budget_accounts)
-                .execute(&mut conn)
-                .expect("Error deleting budget accounts")
-        };
-        num_deleted += {
-            use crate::schema::categories::dsl::*;
-            diesel::delete(categories)
-                .execute(&mut conn)
-                .expect("Error deleting transaction categories")
-        };
-        num_deleted += {
-            use crate::schema::transactions::dsl::*;
-            diesel::delete(transactions)
-                .execute(&mut conn)
-                .expect("Error deleting transactions")
-        };
-        println!("deleted: {}", num_deleted);
+        //
+        assert_eq!(
+            blib.get_category_model("Bills").expense(),
+            0.);
+        assert_eq!(
+            blib.get_category_model("Travel").income(),
+            0.);
     }
 }

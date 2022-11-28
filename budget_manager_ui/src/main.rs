@@ -15,8 +15,6 @@ use rand::{thread_rng, Rng};
 
 use crate::transaction::transaction_object::TransactionObject;
 use crate::window::Window;
-use budget_manager::budgeting::budget_account::BudgetAccount;
-use budget_manager::budgeting::transaction::Transaction;
 
 mod expense_category;
 mod new_transaction_dialog;
@@ -26,8 +24,6 @@ mod window;
 const APP_ID: &str = "org.tmn.budgetTracker";
 
 fn main() {
-    let mut c = budget_manager::establish_connection();
-    budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
     gio::resources_register_include!("app.gresource").expect("Failed to register resources.");
 
     let application = Application::builder().application_id(APP_ID).build();

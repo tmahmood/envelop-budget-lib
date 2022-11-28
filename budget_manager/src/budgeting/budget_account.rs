@@ -14,7 +14,7 @@ use std::collections::btree_map::BTreeMap;
 use std::hash::Hash;
 
 use crate::budgeting::transaction::{Transaction, TransactionBuilder};
-use crate::budgeting::transaction_category::{Category, CategoryBuilder};
+use crate::budgeting::category::{Category, CategoryBuilder};
 use crate::budgeting::Error;
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{current_date, establish_connection, DEFAULT_CATEGORY};
@@ -52,9 +52,9 @@ impl<'a> BudgetAccountBuilder<'a> {
         imp_db!(budget_accounts);
         let new_budget = NewBudgetAccount {
             filed_as: &self.filed_as,
-            date_created: self.date_created.unwrap_or(current_date()),
+            date_created: self.date_created.unwrap_or_else(current_date),
         };
-        let mut b: QueryResult<BudgetAccount> =
+        let b: QueryResult<BudgetAccount> =
             save_model!(conn, budget_accounts, new_budget, BudgetAccount);
         if b.is_err() {
             panic!("Failed to create budget account");

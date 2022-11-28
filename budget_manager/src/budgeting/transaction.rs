@@ -1,8 +1,27 @@
-use crate::budgeting::transaction_category::Category;
+use crate::budgeting::category::Category;
 use crate::{current_date, establish_connection, parse_date};
 use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+
+#[derive(Eq, PartialEq, Clone)]
+pub enum TransactionType {
+    Income,
+    Expense,
+    TransferIn,
+    TransferOut,
+}
+
+impl From<TransactionType> for i32 {
+    fn from(t: TransactionType) -> i32 {
+        match t {
+            TransactionType::Income => 2,
+            TransactionType::Expense => 1,
+            TransactionType::TransferIn => 3,
+            TransactionType::TransferOut => 4
+        }
+    }
+}
 
 #[derive(
     Debug,
@@ -22,10 +41,11 @@ pub struct Transaction {
     note: String,
     payee: String,
     date_created: NaiveDateTime,
-    income: bool,
     #[diesel(sql_type = Double)]
     amount: f64,
     category_id: i32,
+    income: bool,
+    transfer_type_id: i32,
 }
 
 impl Transaction {
@@ -44,6 +64,7 @@ impl Transaction {
             income: amount > 0.,
             date_created,
             category_id,
+            transfer_type_id: 1,
         }
     }
 
@@ -67,6 +88,8 @@ impl Transaction {
     pub fn income(&self) -> bool {
         self.income
     }
+
+
 
     pub fn note(&self) -> String {
         self.note.clone()
@@ -121,6 +144,7 @@ impl Transaction {
             date_created: self.date_created,
             income: self.income,
             category_id: self.category_id,
+            transaction_type_id: self.transfer_type_id,
         }
     }
 
@@ -134,6 +158,13 @@ impl Transaction {
             .expect("Error saving new transaction");
         let results = transactions.limit(1).load::<Transaction>(conn).unwrap();
     }
+    pub fn transfer_type_id(&self) -> i32 {
+        self.transfer_type_id
+    }
+
+    pub fn set_transfer_type_id(&mut self, transfer_type_id: i32) {
+        self.transfer_type_id = transfer_type_id;
+    }
 }
 
 use crate::schema::transactions;
@@ -144,9 +175,10 @@ pub struct NewTransaction<'a> {
     pub note: &'a str,
     pub payee: &'a str,
     pub date_created: NaiveDateTime,
-    pub income: bool,
     pub amount: f64,
     pub category_id: i32,
+    pub income: bool,
+    pub transaction_type_id: i32,
 }
 
 pub struct TransactionBuilder<'a>{
@@ -156,32 +188,38 @@ pub struct TransactionBuilder<'a>{
     payee: Option<String>,
     amount: f64,
     date_created: Option<NaiveDateTime>,
+    transaction_type: TransactionType,
     conn: &'a mut SqliteConnection,
+
 }
 
 impl<'a>TransactionBuilder<'a>{
-    pub(crate) fn new_income(conn: &'a mut SqliteConnection, amount: f64) -> Self {
+    fn new(conn: &'a mut SqliteConnection, amount: f64, income: bool, transaction_type: TransactionType) -> Self {
         Self {
-            income: true,
+            income,
             category_id: None,
             note: None,
             payee: None,
             amount,
             date_created: None,
+            transaction_type,
             conn,
         }
     }
+    pub(crate) fn new_income(conn: &'a mut SqliteConnection, amount: f64) -> Self {
+        TransactionBuilder::new(conn, amount, true, TransactionType::Income)
+    }
 
     pub(crate) fn new_expense(conn: &'a mut SqliteConnection, amount: f64) -> Self {
-        Self {
-            income: false,
-            category_id: None,
-            note: None,
-            payee: None,
-            amount,
-            date_created: Some(current_date()),
-            conn
-        }
+        TransactionBuilder::new(conn, amount, false, TransactionType::Expense)
+    }
+
+    pub(crate) fn new_transfer_in(conn: &'a mut SqliteConnection, amount: f64) -> Self {
+        TransactionBuilder::new(conn, amount, true, TransactionType::TransferIn)
+    }
+
+    pub(crate) fn new_transfer_out(conn: &'a mut SqliteConnection, amount: f64) -> Self {
+        TransactionBuilder::new(conn, amount, false, TransactionType::TransferOut)
     }
 
     pub(crate) fn category(&mut self, category_id: i32) -> &mut Self {
@@ -208,10 +246,16 @@ impl<'a>TransactionBuilder<'a>{
         if self.category_id.is_none() || self.note.is_none() || self.payee.is_none() {
             panic!("Not all field set")
         }
-        let signed_amount = if self.income {
+        let signed_amount = if self.transaction_type == TransactionType::Income {
             self.amount
-        } else {
+        } else if self.transaction_type == TransactionType::Expense {
             -1. * self.amount
+        } else {
+            if self.income {
+                self.amount
+            } else {
+                -1. * self.amount
+            }
         };
         let new_transaction = NewTransaction {
             note: self.note.as_ref().unwrap(),
@@ -220,6 +264,7 @@ impl<'a>TransactionBuilder<'a>{
             income: self.income,
             amount: signed_amount,
             category_id: self.category_id.unwrap(),
+            transaction_type_id: i32::from(self.transaction_type.clone()),
         };
         imp_db!(transactions);
         diesel::insert_into(transactions::table)
