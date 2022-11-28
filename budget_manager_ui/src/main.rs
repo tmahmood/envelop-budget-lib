@@ -1,38 +1,36 @@
-use std::borrow::BorrowMut;
-use gtk::prelude::*;
-use std::env::args;
-use gtk::prelude::*;
 use adw::prelude::*;
 use budget_manager;
+use gtk::prelude::*;
+use gtk::prelude::*;
+use std::borrow::BorrowMut;
+use std::env::args;
 
-
-use adw::{Application, ActionRow, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher, gio};
 use adw::gdk::Display;
 use adw::gio::Settings;
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use gtk::{Box, ListBox, Orientation, Button, StackPage, Stack, glib, CssProvider, StyleContext};
+use adw::{gio, ActionRow, Application, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
 use gtk::glib::Object;
-use rand::{Rng, thread_rng};
+use gtk::{glib, Box, Button, CssProvider, ListBox, Orientation, Stack, StackPage, StyleContext};
+use rand::{thread_rng, Rng};
 
-use budget_manager::budgeting::budget_account::BudgetAccount;
-use budget_manager::budgeting::transaction::Transaction;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::window::Window;
+use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::transaction::Transaction;
 
-mod window;
-mod transaction;
 mod expense_category;
 mod new_transaction_dialog;
+mod transaction;
+mod window;
 
 const APP_ID: &str = "org.tmn.budgetTracker";
 
 fn main() {
-   gio::resources_register_include!("app.gresource")
-        .expect("Failed to register resources.");
+    let mut c = budget_manager::establish_connection();
+    budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
+    gio::resources_register_include!("app.gresource").expect("Failed to register resources.");
 
-    let application = Application::builder()
-        .application_id(APP_ID)
-        .build();
+    let application = Application::builder().application_id(APP_ID).build();
     application.connect_startup(setup_shortcuts);
     application.connect_activate(build_ui);
     application.run();

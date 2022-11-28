@@ -84,9 +84,23 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
 
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = "sqlite://db.sqlite";
     SqliteConnection::establish(&database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+}
+
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+
+pub fn run_migrations(
+    connection: &mut impl MigrationHarness<diesel::sqlite::Sqlite>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    // This will run the necessary migrations.
+    //
+    // See the documentation for `MigrationHarness` for
+    // all available methods.
+    connection.run_pending_migrations(MIGRATIONS)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -140,10 +154,7 @@ mod tests {
         // initial + allocation to bills * 2 + allocation to travel * 2
         assert_eq!(blib.transactions().len(), 5);
         assert_eq!(blib.actual_total_balance(), INITIAL);
-        assert_eq!(
-            blib.uncategorized_balance(),
-            INITIAL - (BILLS + TRAVEL)
-        );
+        assert_eq!(blib.uncategorized_balance(), INITIAL - (BILLS + TRAVEL));
         // now let's do some transactions
         {
             let mut travel = blib.new_transaction_to_category("Travel");
@@ -236,5 +247,4 @@ mod tests {
         };
         println!("deleted: {}", num_deleted);
     }
-
 }

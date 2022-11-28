@@ -4,8 +4,12 @@ use crate::budgeting::transaction_category::{Category, CategoryBuilder, Category
 use crate::budgeting::Error::CategoryNotFound;
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{establish_connection, DEFAULT_CATEGORY};
+use diesel::connection::BoxableConnection;
 use diesel::dsl::sum;
 use diesel::{QueryResult, SqliteConnection};
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub mod budget_account;
 pub mod storage;
@@ -36,18 +40,23 @@ pub mod prelude {
     use super::transaction_category::*;
 }
 
-#[derive(Default)]
 pub struct Budgeting {
-    conn: SqliteConnection,
+    conn: Rc<SqliteConnection>,
     budget: Option<BudgetAccount>,
+}
+
+impl Default for Budgeting {
+    fn default() -> Self {
+        Budgeting::new()
+    }
 }
 
 impl Budgeting {
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
-    pub fn new_transaction_to_category<'a>(
-        &'a mut self,
-        category: &'a str,
+    pub fn new_transaction_to_category<'b>(
+        &'b mut self,
+        category: &'b str,
     ) -> TransactionAddToCategoryOps {
         let b = self.current_budget();
         let mut cm = self.get_category_model(category);
@@ -81,10 +90,7 @@ impl Budgeting {
         allocate: f64,
     ) -> Result<Category, Error> {
         let mut budget = self.current_budget();
-        let t = self
-            .category_builder(category)
-            .allocated(allocate)
-            .done();
+        let t = self.category_builder(category).allocated(allocate).done();
         self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
         Ok(t)
     }
@@ -101,10 +107,11 @@ impl Budgeting {
     pub fn find_category(&mut self, category_name: &str) -> Result<Category, Error> {
         imp_db!(categories);
         imp_db!(budget_accounts);
-        let mut budget = self.current_budget();
+        let mut budget = { self.current_budget() };
+        let conn = self.conn();
         let result: QueryResult<Category> = Category::belonging_to(&budget)
             .filter(name.eq(category_name))
-            .first(self.conn());
+            .first(conn);
         result.map_err(|e| CategoryNotFound)
     }
 
@@ -127,7 +134,7 @@ impl Budgeting {
         b.clone()
     }
 
-    pub(crate) fn set_current_budget(&mut self, filed_as: &str) -> BudgetAccount {
+    pub fn set_current_budget(&mut self, filed_as: &str) -> BudgetAccount {
         let b = self.find_budget(filed_as);
         if b.is_err() {
             panic!("Budget account with same name does not exists");
@@ -142,19 +149,16 @@ impl Budgeting {
         CategoryBuilder::new(self.conn(), id, category_name)
     }
 
+    // TODO: Replace with Result, so that we can gracefully handle errors
     pub fn new_budget(&mut self, filed_as: &str, amount: f64) -> BudgetAccount {
         let budget_account = self.find_budget(filed_as);
         if budget_account.is_ok() {
             panic!("Budget account with same name already exists");
         }
-        let mut b = BudgetAccountBuilder::new(self.conn(), "main")
-            .build();
+        let mut b = BudgetAccountBuilder::new(self.conn(), "main").build();
         self.budget = Some(b.clone());
         // create the default category
-        let t = self
-            .category_builder(DEFAULT_CATEGORY)
-            .allocated(0.)
-            .done();
+        let t = self.category_builder(DEFAULT_CATEGORY).allocated(0.).done();
         let mut cm = self.category_model(t);
         // create entry for initial balance in the default category
         cm.new_income(amount)
@@ -244,12 +248,13 @@ impl Budgeting {
     }
 
     pub(crate) fn conn(&mut self) -> &mut SqliteConnection {
-        &mut self.conn
+        Rc::get_mut(&mut self.conn).unwrap()
     }
 
     pub fn new() -> Self {
+        let r = Rc::new(establish_connection());
         Budgeting {
-            conn: establish_connection(),
+            conn: r,
             budget: None,
         }
     }

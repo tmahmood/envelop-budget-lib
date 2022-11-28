@@ -38,25 +38,14 @@ impl Window {
     pub fn setup_budget_account(&self) {
         // this section is a stab, in reality, it will be loaded from data file.
         let mut budgeting = Budgeting::new();
-        budgeting.new_budget("main", 10000.);
-        budgeting.create_category_and_allocate("Bills", 3000.).unwrap();
-        budgeting.create_category_and_allocate("Travel", 2000.).unwrap();
-        let mut def = budgeting.new_transaction_to_category(DEFAULT_CATEGORY);
-        let mut bills = budgeting.new_transaction_to_category("Bills");
-        let mut travel = budgeting.new_transaction_to_category("Travel");
-        def.expense(1000.).note("Card Payment").payee("SCB").done();
-        bills.expense(300.34).payee("Uber").note("Someplace").done();
-        travel.expense(1300.23).payee("Foodpanda").note("Food").done();
-        travel.income(400.).payee("UP").note("Salary").done();
-        def.income(5000.).payee("Work").note("Some Payment").done();
-        // end stab
+        budgeting.set_current_budget("main");
         self.imp().budgeting.replace(budgeting);
     }
 
     fn setup_transactions(&self) {
-        let budget = self.imp().budgeting.borrow();
+        let mut budgeting = self.imp().budgeting.borrow_mut();
         let model = gio::ListStore::new(TransactionObject::static_type());
-        budget.transactions().iter().for_each(|transaction| {
+        budgeting.transactions().iter().for_each(|transaction| {
             let transaction_object = TransactionObject::from_transaction_data(transaction);
             model.append(&transaction_object);
         });
@@ -240,16 +229,25 @@ impl Window {
                                      response: ResponseType, payee: String, note: String, amount: f64, is_income: bool| {
             dialog.destroy();
             // TODO must replace with actual transaction category
-            let category = None;
+            let category = DEFAULT_CATEGORY;
             {
-                let mut budget = window.imp().budgeting.borrow_mut();
+                let mut budgeting = window.imp().budgeting.borrow_mut();
                 let t = if is_income {
-                    budget.new_income(category, amount, &payee, &note)
+                    budgeting.new_transaction_to_category(category)
+                        .income(amount)
+                        .payee(&payee)
+                        .note(&note)
+                        .done()
                 } else {
-                    budget.new_expense(category, amount, &payee, &note)
-                }.unwrap();
+                    budgeting.new_transaction_to_category(category)
+                        .expense(amount)
+                        .payee(&payee)
+                        .note(&note)
+                        .done()
+                };
+                println!("{:?}", t);
                 let transactions = window.transactions();
-                transactions.append(&TransactionObject::from_transaction_data(t));
+                transactions.append(&TransactionObject::from_transaction_data(&t));
             }
             dialog.emit_by_name::<()>("budget-updated", &[&1]);
         };

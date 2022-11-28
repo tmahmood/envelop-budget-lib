@@ -179,7 +179,7 @@ impl<'a>TransactionBuilder<'a>{
             note: None,
             payee: None,
             amount,
-            date_created: None,
+            date_created: Some(current_date()),
             conn
         }
     }

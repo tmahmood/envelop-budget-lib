@@ -1,8 +1,8 @@
-use std::rc::Rc;
 use crate::budgeting::budget_account::BudgetAccount;
 use crate::budgeting::transaction::Transaction;
 use crate::budgeting::transaction_category::{Category, CategoryModel};
 use diesel::SqliteConnection;
+use std::rc::Rc;
 
 pub struct TransactionAddToCategoryOps<'a> {
     budget: BudgetAccount,
@@ -10,21 +10,18 @@ pub struct TransactionAddToCategoryOps<'a> {
     payee: Option<&'a str>,
     note: Option<&'a str>,
     income: Option<bool>,
-    category_model: CategoryModel<'a>
+    category_model: CategoryModel<'a>,
 }
 
 impl<'a> TransactionAddToCategoryOps<'a> {
-    pub fn new(
-        budget: BudgetAccount,
-        category_model: CategoryModel<'a>,
-    ) -> Self {
+    pub fn new(budget: BudgetAccount, category_model: CategoryModel<'a>) -> Self {
         TransactionAddToCategoryOps {
             budget,
             amount: None,
             payee: None,
             note: None,
             income: None,
-            category_model
+            category_model,
         }
     }
 
@@ -68,7 +65,10 @@ impl<'a> TransactionAddToCategoryOps<'a> {
         } else {
             self.category_model.new_expense(self.amount.unwrap())
         };
-        let t = n.payee("Some").note("Other").done();
+        let t = n
+            .payee(self.payee.unwrap())
+            .note(self.note.unwrap())
+            .done();
         self.reset();
         t
     }
