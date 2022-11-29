@@ -22,16 +22,11 @@ macro_rules! save_model {
 
 macro_rules! return_sum {
     ($query_result: expr) => {
-        if $query_result.is_ok() {
-            let option = $query_result.unwrap();
-            if option.is_none() {
-                return 0.0;
-            }
-            return option.unwrap();
-        } else {
-            return 0.0;
+        match $query_result {
+            Ok(Some(n)) => n,
+            _ => 0.0,
         }
-    };
+    }
 }
 
 macro_rules! imp_db {
@@ -50,11 +45,9 @@ macro_rules! imp_db {
 pub mod budget_account_op;
 pub mod budgeting;
 pub mod schema;
-pub mod transaction_op;
 #[cfg(test)]
 mod test_helpers;
-
-
+pub mod transaction_op;
 
 /// This should be used whenever date time is needed
 pub fn current_date() -> NaiveDateTime {
@@ -106,13 +99,9 @@ pub fn run_migrations(
 mod tests {
     use super::*;
     use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder};
-    use crate::budgeting::transaction::Transaction;
-    use crate::budgeting::category::{Category, CategoryBuilder};
-    use crate::budgeting::{Budgeting, transaction};
-    use rand::Rng;
-    use std::borrow::BorrowMut;
-    use std::collections::BTreeMap;
-    use std::rc::Rc;
+
+    use crate::budgeting::category::CategoryBuilder;
+    use crate::budgeting::Budgeting;
     use crate::test_helpers;
     use crate::test_helpers::DbDropper;
 
@@ -128,23 +117,16 @@ mod tests {
 
     #[test]
     fn transfer_should_not_be_counted_as_income_or_expense() {
-        let dd = DbDropper::new();
+        let _dd = DbDropper::new();
         let mut blib = Budgeting::new();
         test_helpers::new_budget_using_budgeting(&mut blib);
-        assert_eq!(
-            blib.get_category_model("Bills").income(),
-            0.
-        );
-        assert_eq!(
-            blib.get_category_model(DEFAULT_CATEGORY).expense(),
-            0.
-        );
+        assert_eq!(blib.get_category_model("Bills").income(), 0.);
+        assert_eq!(blib.get_category_model(DEFAULT_CATEGORY).expense(), 0.);
     }
-
 
     #[test]
     fn creating_budget_and_adding_transaction() {
-        let mut db = DbDropper::new();
+        let _db = DbDropper::new();
         let mut blib = Budgeting::new();
         test_helpers::new_budget_using_budgeting(&mut blib);
         // initial + allocation to bills * 2 + allocation to travel * 2
@@ -194,11 +176,7 @@ mod tests {
         println!("{:?}", v);
 
         //
-        assert_eq!(
-            blib.get_category_model("Bills").expense(),
-            0.);
-        assert_eq!(
-            blib.get_category_model("Travel").income(),
-            0.);
+        assert_eq!(blib.get_category_model("Bills").expense(), 0.);
+        assert_eq!(blib.get_category_model("Travel").income(), 0.);
     }
 }

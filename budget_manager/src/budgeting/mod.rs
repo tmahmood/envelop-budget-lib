@@ -225,7 +225,7 @@ impl Budgeting {
         let result = transactions
             .select(sum(amount))
             .first::<Option<f64>>(self.conn());
-        return_sum!(result);
+        return_sum!(result)
     }
 
     /// returns the total unallocated balance

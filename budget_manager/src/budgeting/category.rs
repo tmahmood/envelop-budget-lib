@@ -164,12 +164,7 @@ impl<'a> CategoryModel<'a> {
             .select(sum(amount))
             .filter(transaction_type_id.eq(i32::from(TransactionType::Income)))
             .first::<Option<f64>>(self.conn);
-        if let Ok(o) = result_option {
-            if let Some(k) = o {
-                return k
-            }
-        }
-        return 0.
+        return_sum!(result_option)
     }
 
     pub fn expense(&mut self) -> f64 {
