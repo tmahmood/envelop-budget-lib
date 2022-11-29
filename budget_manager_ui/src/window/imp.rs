@@ -1,12 +1,12 @@
-use adw::ffi::{AdwExpanderRow, AdwHeaderBar, AdwWindowTitle};
+
 use adw::gio::Settings;
 use adw::glib::signal::Inhibit;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use adw::{ActionRow, ExpanderRow};
+
 use gtk::glib;
 use gtk::glib::subclass::InitializingObject;
-use gtk::glib::{ParamFlags, ParamSpec};
+
 use gtk::{gio, Button, Label, ListBox};
 use std::cell::RefCell;
 

@@ -4,19 +4,17 @@ use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::transaction::transaction_row::TransactionRow;
 
-
-
 use adw::glib::{closure_local, BindingFlags};
 
+use crate::transaction::transaction_object::imp::{from_transaction_to_transfer_inner, TransactionInner};
 use adw::prelude::*;
-use adw::{Application};
+use adw::Application;
+use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
 use gtk::glib::{clone, Object};
 use gtk::subclass::prelude::*;
-use gtk::{
-    gio, glib, Entry, NoSelection, ResponseType,
-};
+use gtk::{gio, glib, Entry, NoSelection, ResponseType};
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -46,7 +44,9 @@ impl Window {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let model = gio::ListStore::new(TransactionObject::static_type());
         budgeting.transactions().iter().for_each(|transaction| {
-            let transaction_object = TransactionObject::from_transaction_data(transaction);
+            let mut tm = budgeting.transaction_model(transaction.clone());
+            let lt = from_transaction_to_transfer_inner(transaction, &mut tm);
+            let transaction_object = TransactionObject::new(lt);
             model.append(&transaction_object);
         });
         self.imp().transactions.replace(Some(model));
@@ -136,7 +136,7 @@ impl Window {
         let category_name_label = row.imp().category_name_label.get();
         let image = row.imp().transaction_type.get();
         let date_created_label = row.imp().date_created_label.get();
-        if transaction_object.is_income() {
+        if transaction_object.transaction_type() == "Income" {
             row.imp().amount_label.set_css_classes(&["success"]);
             image.set_icon_name(Some("go-up"));
         } else {
@@ -152,11 +152,11 @@ impl Window {
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("only_amount", &amount_label, "label")
+            .bind_property("only-amount", &amount_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("category-id", &category_name_label, "label")
+            .bind_property("category-name", &category_name_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
@@ -242,7 +242,7 @@ impl Window {
             let category = DEFAULT_CATEGORY;
             {
                 let mut budgeting = window.imp().budgeting.borrow_mut();
-                let t = if is_income {
+                let transaction = if is_income {
                     budgeting
                         .new_transaction_to_category(category)
                         .income(amount)
@@ -257,9 +257,13 @@ impl Window {
                         .note(&note)
                         .done()
                 };
-                println!("{:?}", t);
+                println!("{:?}", transaction);
+                let mut tm = budgeting.transaction_model(transaction.clone());
+                let transfer_type =
+                    String::from(TransactionType::from(transaction.transfer_type_id()));
+                let lt = from_transaction_to_transfer_inner(&transaction, &mut tm);
                 let transactions = window.transactions();
-                transactions.append(&TransactionObject::from_transaction_data(&t));
+                transactions.append(&TransactionObject::new(lt));
             }
             dialog.emit_by_name::<()>("budget-updated", &[&1]);
         };

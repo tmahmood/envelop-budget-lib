@@ -1,9 +1,9 @@
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CheckButton, CompositeTemplate, Label, Entry, Image, Switch};
+use gtk::{glib, CompositeTemplate, Entry, Switch};
 use std::cell::RefCell;
-use adw::ActionRow;
+
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
 

@@ -1,59 +1,50 @@
 pub mod imp;
 
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use gtk::glib::Object;
+use budget_manager::budgeting::transaction::{Transaction, TransactionModel};
 use gtk::glib;
-use budget_manager::budgeting::transaction::Transaction;
+use gtk::glib::Object;
+use crate::transaction::transaction_object::imp::TransactionInner;
 
 glib::wrapper! {
     pub struct TransactionObject(ObjectSubclass<imp::TransactionObject>);
 }
 
 impl TransactionObject {
-    pub fn new(payee: String, note: String, amount: f64, category: i32, date_created: String) -> Self {
-        let only_amount = if amount > 0. { amount } else { -1. * amount };
+    pub fn new(transaction_inner: TransactionInner) -> Self {
         Object::builder()
-            .property("payee", &payee)
-            .property("note", &note)
-            .property("amount", &amount)
-            .property("only-amount", &only_amount)
-            .property("category-id", &category)
-            .property("date-created", &date_created)
+            .property("id", &transaction_inner.id)
+            .property("payee", &transaction_inner.payee)
+            .property("note", &transaction_inner.note)
+            .property("amount", &transaction_inner.amount)
+            .property("only-amount", &transaction_inner.only_amount)
+            .property("category-name", &transaction_inner.category_name)
+            .property("date-created", &transaction_inner.date_created)
+            .property("transaction-type", &transaction_inner.transfer_type)
             .build()
     }
 
-    pub fn category_id(&self) -> String {
-        self.imp().data.borrow().category_id().to_string()
+    pub fn category_name(&self) -> String {
+        self.imp().data.borrow().category_name.clone()
     }
 
     pub fn payee(&self) -> String {
-        self.imp().data.borrow().payee()
+        self.imp().data.borrow().payee.clone()
     }
 
     pub fn note(&self) -> String {
-        self.imp().data.borrow().note()
+        self.imp().data.borrow().note.clone()
     }
 
     pub fn amount(&self) -> f64 {
-        self.imp().data.borrow().amount()
+        self.imp().data.borrow().amount
     }
 
     pub fn only_amount(&self) -> f64 {
-        self.imp().data.borrow().only_amount()
+        self.imp().data.borrow().only_amount
     }
 
-    pub fn is_income(&self) -> bool {
-        self.imp().data.borrow().income()
-    }
-
-
-    pub fn from_transaction_data(transaction_data: &Transaction) -> Self {
-        Self::new(
-            transaction_data.payee(),
-            transaction_data.note(),
-            transaction_data.amount(),
-            transaction_data.category_id(),
-            transaction_data.date_created_str()
-        )
+    pub fn transaction_type(&self) -> String {
+        self.imp().data.borrow().transfer_type.clone()
     }
 }

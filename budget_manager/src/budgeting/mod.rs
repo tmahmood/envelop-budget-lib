@@ -1,6 +1,6 @@
 use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder, NewBudgetAccount};
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
-use crate::budgeting::transaction::{Transaction, TransactionType};
+use crate::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use crate::budgeting::Error::{BudgetAccountNotFound, CategoryNotFound, FailedToCreateBudget};
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{establish_connection, DEFAULT_CATEGORY};
@@ -103,6 +103,10 @@ impl Budgeting {
         CategoryModel::new(self.conn(), category)
     }
 
+    pub fn transaction_model(&mut self, transaction: Transaction) -> TransactionModel {
+        TransactionModel::new(self.conn(), transaction)
+    }
+
     pub fn get_category_model(&mut self, category_name: &str) -> CategoryModel {
         let c = self.find_category(category_name).unwrap();
         self.category_model(c)
@@ -141,7 +145,7 @@ impl Budgeting {
     pub fn set_current_budget(
         &mut self,
         filed_as: &str,
-    ) -> Result<BudgetAccount, crate::budgeting::Error> {
+    ) -> Result<BudgetAccount, Error> {
         let b = self.find_budget(filed_as);
         if b.is_err() {
             return Err(BudgetAccountNotFound(filed_as.to_string()));
@@ -160,7 +164,7 @@ impl Budgeting {
         &mut self,
         filed_as: &str,
         amount: f64,
-    ) -> Result<BudgetAccount, crate::budgeting::Error> {
+    ) -> Result<BudgetAccount, Error> {
         let budget_account = self.find_budget(filed_as);
         if budget_account.is_ok() {
             return Err(FailedToCreateBudget(filed_as.to_string()));
@@ -237,18 +241,21 @@ impl Budgeting {
     }
 
     pub fn total_income(&mut self) -> f64 {
-        self.categories()
-            .iter()
-            .map(|v| CategoryModel::new(self.conn(), v.clone()).income())
-            .sum::<f64>()
+        self.total_of(TransactionType::Income)
     }
 
     pub fn total_expense(&mut self) -> f64 {
-        self.categories()
-            .iter()
-            .map(|v| CategoryModel::new(self.conn(), v.clone()).expense())
-            .sum::<f64>()
-            * -1.
+        self.total_of(TransactionType::Expense)
+    }
+
+    fn total_of(&mut self, filter_opt: TransactionType) -> f64 {
+        imp_db!(transactions);
+        let f = transaction_type_id.eq(i32::from(filter_opt));
+        let result_option = transactions
+            .select(sum(amount))
+            .filter(f)
+            .first::<Option<f64>>(self.conn());
+        return_sum!(result_option)
     }
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
@@ -282,7 +289,7 @@ pub mod tests {
     fn initial_budget_account_details() {
         let mut dd = DbDropper::new();
         let mut blib = Budgeting::new();
-        blib.new_budget("main", 10000.);
+        blib.new_budget("main", 10000.).unwrap();
         assert_eq!(blib.uncategorized_balance(), INITIAL);
         assert_eq!(blib.actual_total_balance(), INITIAL);
     }

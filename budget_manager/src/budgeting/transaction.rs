@@ -1,4 +1,5 @@
-use crate::budgeting::category::Category;
+use crate::budgeting::category::{Category, CategoryModel};
+use crate::schema::transactions;
 use crate::{current_date, establish_connection, parse_date};
 use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
@@ -12,6 +13,17 @@ pub enum TransactionType {
     TransferOut,
 }
 
+impl From<i32> for TransactionType {
+    fn from(t: i32) -> TransactionType {
+        match t {
+            1 => TransactionType::Expense,
+            2 => TransactionType::Income,
+            3 => TransactionType::TransferIn,
+            4 => TransactionType::TransferOut,
+            _ => panic!("Invalid transaction type")
+        }
+    }
+}
 impl From<TransactionType> for i32 {
     fn from(t: TransactionType) -> i32 {
         match t {
@@ -19,6 +31,17 @@ impl From<TransactionType> for i32 {
             TransactionType::Expense => 1,
             TransactionType::TransferIn => 3,
             TransactionType::TransferOut => 4,
+        }
+    }
+}
+
+impl From<TransactionType> for String {
+    fn from(t: TransactionType) -> String {
+        match t {
+            TransactionType::Income => "Income".to_string(),
+            TransactionType::Expense => "Expense".to_string(),
+            TransactionType::TransferIn => "Transfer In".to_string(),
+            TransactionType::TransferOut => "Transfer Out".to_string(),
         }
     }
 }
@@ -144,7 +167,27 @@ impl Transaction {
     }
 }
 
-use crate::schema::transactions;
+pub struct TransactionModel<'a> {
+    transaction: Transaction,
+    conn: &'a mut SqliteConnection,
+}
+
+impl<'a> TransactionModel<'a> {
+    pub fn new(conn: &'a mut SqliteConnection, transaction: Transaction) -> Self {
+        TransactionModel { transaction, conn }
+    }
+    pub fn transaction(&self) -> &Transaction {
+        &self.transaction
+    }
+
+    pub fn category_name(&mut self) -> String {
+        match CategoryModel::load(self.conn, self.transaction.category_id) {
+            Ok(c) => c.name(),
+            Err(diesel::result::Error::NotFound) => "Not Found!".to_string(),
+            _ => "Unknown".to_string(),
+        }
+    }
+}
 
 #[derive(Insertable, Deserialize)]
 #[diesel(table_name = transactions)]

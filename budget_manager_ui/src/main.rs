@@ -1,19 +1,19 @@
 use adw::prelude::*;
-use budget_manager;
-use gtk::prelude::*;
-use gtk::prelude::*;
-use std::borrow::BorrowMut;
-use std::env::args;
 
-use adw::gdk::Display;
-use adw::gio::Settings;
-use adw::subclass::prelude::ObjectSubclassIsExt;
-use adw::{gio, ActionRow, Application, HeaderBar, ViewStack, ViewStackPage, ViewSwitcher};
-use gtk::glib::Object;
-use gtk::{glib, Box, Button, CssProvider, ListBox, Orientation, Stack, StackPage, StyleContext};
-use rand::{thread_rng, Rng};
 
-use crate::transaction::transaction_object::TransactionObject;
+
+
+
+
+
+
+
+use adw::{gio, Application};
+
+
+
+
+
 use crate::window::Window;
 
 mod expense_category;

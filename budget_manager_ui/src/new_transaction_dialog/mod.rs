@@ -2,7 +2,7 @@ mod imp;
 
 use glib::{Object};
 use gtk::prelude::*;
-use gtk::{glib, pango, ResponseType};
+use gtk::{glib, ResponseType};
 
 use crate::window::Window;
 

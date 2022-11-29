@@ -57,7 +57,7 @@ pub fn clear_database() {
 }
 
 pub fn new_budget_using_budgeting(budgeting: &mut Budgeting) {
-    budgeting.new_budget("main", 10000.);
+    budgeting.new_budget("main", 10000.).expect("Error creating new budget");
     budgeting
         .create_category_and_allocate("Bills", BILLS)
         .unwrap();

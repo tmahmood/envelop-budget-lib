@@ -1,17 +1,31 @@
-use glib::{ParamFlags, ParamSpec, Value};
+use adw::glib::{ParamSpecDouble, ParamSpecInt, ParamSpecString};
+use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
+use budget_manager::DEFAULT_CATEGORY;
+use chrono::NaiveDateTime;
+use clap::builder::Str;
+use glib::{ParamSpec, Value};
 use gtk::glib;
+use gtk::glib::once_cell::sync::Lazy;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use adw::glib::{ParamSpecBoolean, ParamSpecDouble, ParamSpecFloat, ParamSpecInt, ParamSpecString};
-use gtk::glib::once_cell::sync::Lazy;
-use budget_manager::budgeting::transaction::Transaction;
 
+#[derive(Default)]
+pub struct TransactionInner {
+    pub id: i32,
+    pub note: String,
+    pub payee: String,
+    pub date_created: String,
+    pub amount: f64,
+    pub only_amount: f64,
+    pub category_name: String,
+    pub transfer_type: String,
+}
 // Object holding the state
 #[derive(Default)]
 pub struct TransactionObject {
-    pub data: Rc<RefCell<Transaction>>,
+    pub data: Rc<RefCell<TransactionInner>>,
 }
 
 // The central trait for subclassing a GObject
@@ -26,12 +40,18 @@ impl ObjectImpl for TransactionObject {
     fn properties() -> &'static [ParamSpec] {
         static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
             vec![
+                ParamSpecInt::builder("id").build(),
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
-                ParamSpecDouble::builder("amount").default_value(0.0).build(),
-                ParamSpecInt::builder("category-id").default_value(1).build(),
+                ParamSpecDouble::builder("amount")
+                    .default_value(0.0)
+                    .build(),
+                ParamSpecString::builder("category-name")
+                    .default_value(DEFAULT_CATEGORY)
+                    .build(),
                 ParamSpecDouble::builder("only-amount").build(),
                 ParamSpecString::builder("date-created").build(),
+                ParamSpecString::builder("transaction-type").build(),
             ]
         });
         PROPERTIES.as_ref()
@@ -39,42 +59,80 @@ impl ObjectImpl for TransactionObject {
 
     fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
         match pspec.name() {
+            "id" => {
+                let input_value = value.get().expect("The value needs to be of type `i32`.");
+                self.data.borrow_mut().id = input_value;
+            }
             "payee" => {
-                let input_value = value.get().expect("The value needs to be of type `string`.");
-                self.data.borrow_mut().set_payee(input_value);
-            }
-            "note" => {
-                let input_value = value.get().expect("the value needs to be of type `string`.");
-                self.data.borrow_mut().set_note(input_value);
-            }
-            "amount" => {
                 let input_value = value
                     .get()
-                    .expect("The value needs to be of type `float`.");
-                self.data.borrow_mut().set_amount(input_value);
-            },
-            "category-id" => {
-                let input_value = value.get().expect("the value needs to be of type `string`.");
-                self.data.borrow_mut().set_category_id(input_value);
+                    .expect("The value needs to be of type `string`.");
+                self.data.borrow_mut().payee = input_value;
             }
-            "only-amount" => {},
+            "note" => {
+                let input_value = value
+                    .get()
+                    .expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().note = input_value;
+            }
+            "amount" => {
+                let input_value = value.get().expect("The value needs to be of type `float`.");
+                self.data.borrow_mut().amount = input_value;
+            }
+            "category-name" => {
+                let input_value = value
+                    .get()
+                    .expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().category_name = input_value;
+            }
+            "only-amount" => {
+                let input_value = value.get().expect("The value needs to be of type `float`.");
+                self.data.borrow_mut().only_amount = input_value;
+            }
+            "transaction-type" => {
+                let input_value = value
+                    .get()
+                    .expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().transfer_type = input_value;
+            }
             "date-created" => {
-                let input_value = value.get().expect("the value needs to be of type `string`.");
-                self.data.borrow_mut().set_date_created_from_str(input_value);
+                let input_value = value
+                    .get()
+                    .expect("the value needs to be of type `string`.");
+                self.data.borrow_mut().date_created = input_value;
             }
-            _ => unimplemented!(),
+            _ => {
+                println!("{}", pspec.name());
+                unimplemented!()
+            },
         }
     }
 
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
-            "note" => self.data.borrow().note().to_value(),
-            "amount" => self.data.borrow().amount().to_value(),
-            "payee" => self.data.borrow().payee().to_value(),
-            "only-amount" => self.data.borrow().only_amount().to_value(),
-            "category-id" => self.data.borrow().category_id().to_value(),
-            "date-created" => self.data.borrow().date_created_str().to_value(),
+            "id" => self.data.borrow().id.to_value(),
+            "note" => self.data.borrow().note.to_value(),
+            "amount" => self.data.borrow().amount.to_value(),
+            "payee" => self.data.borrow().payee.to_value(),
+            "only-amount" => self.data.borrow().only_amount.to_value(),
+            "category-name" => self.data.borrow().category_name.to_value(),
+            "date-created" => self.data.borrow().date_created.to_value(),
+            "transaction-type" => self.data.borrow().transfer_type.to_value(),
             _ => unimplemented!(),
         }
+    }
+}
+
+pub fn from_transaction_to_transfer_inner(transaction: &Transaction, tm: &mut TransactionModel) -> TransactionInner {
+    let transfer_type = String::from(TransactionType::from(transaction.transfer_type_id()));
+    TransactionInner {
+        id: transaction.id(),
+        note: transaction.note(),
+        payee: transaction.payee(),
+        date_created: transaction.date_created_str(),
+        amount: transaction.amount(),
+        only_amount: transaction.only_amount(),
+        category_name: tm.category_name(),
+        transfer_type,
     }
 }
