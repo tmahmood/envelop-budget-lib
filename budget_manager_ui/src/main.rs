@@ -33,7 +33,7 @@ fn main() {
 }
 
 fn setup_shortcuts(app: &Application) {
-    &app.set_accels_for_action("win.new-transaction", &["<Ctrl>a"]);
+    app.set_accels_for_action("win.new-transaction", &["<Ctrl>a"]);
 }
 
 fn build_ui(app: &Application) {

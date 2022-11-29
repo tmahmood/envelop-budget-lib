@@ -1,24 +1,19 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use adw::{ActionRow, ExpanderRow};
 use adw::ffi::{AdwExpanderRow, AdwHeaderBar, AdwWindowTitle};
 use adw::gio::Settings;
 use adw::glib::signal::Inhibit;
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{Button, Entry, gio, Label, ListBox, ListView};
-use gtk::cairo::glib::subclass::TypeData;
-use gtk::glib::{Type, Value, ParamSpec, ParamFlags};
-use gtk::glib::subclass::InitializingObject;
+use adw::{ActionRow, ExpanderRow};
 use gtk::glib;
-use gtk::subclass::prelude::*;
-use gtk::CompositeTemplate;
+use gtk::glib::subclass::InitializingObject;
+use gtk::glib::{ParamFlags, ParamSpec};
+use gtk::{gio, Button, Label, ListBox};
+use std::cell::RefCell;
+
 use gtk::gio::glib::once_cell::sync::OnceCell;
-use gtk::glib::once_cell::sync::Lazy;
-use gtk::prelude::*;
-use budget_manager::budgeting::budget_account::BudgetAccount;
+use gtk::CompositeTemplate;
+
 use budget_manager::budgeting::Budgeting;
-use budget_manager::budgeting::transaction::Transaction;
 
 #[derive(CompositeTemplate, Default)]
 #[template(file = "../../resources/main_window.ui")]
@@ -49,7 +44,6 @@ pub struct Window {
 
     pub settings: OnceCell<Settings>,
     pub budgeting: RefCell<Budgeting>,
-
 }
 
 impl Window {
@@ -96,9 +90,9 @@ impl WindowImpl for Window {
     // Save window state right before the window will be closed
     fn close_request(&self) -> Inhibit {
         // Save window size
-        self.obj()
-            .save_all_settings()
-            .expect("Failed to save settings");
+        // self.obj()
+        //     .save_all_settings()
+        //     .expect("Failed to save settings");
         // Don't inhibit the default handler
         Inhibit(false)
     }
@@ -108,4 +102,3 @@ impl ApplicationWindowImpl for Window {}
 
 // Trait shared by all application
 impl AdwApplicationWindowImpl for Window {}
-

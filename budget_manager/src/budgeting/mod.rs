@@ -74,16 +74,14 @@ impl Budgeting {
         dest: &str,
         amount: f64,
     ) -> Result<(), Error> {
-        let mut cm = self.get_category_model(src);
         self.new_transaction_to_category(src)
             .transfer_from(amount)
-            .payee(&format!("{}", dest))
+            .payee(dest)
             .note(&format!("Transferred to {}", dest))
             .done();
-        let mut cm = self.get_category_model(dest);
         self.new_transaction_to_category(dest)
             .transfer_to(amount)
-            .payee(&format!("{}", dest))
+            .payee(dest)
             .note(&format!("Received from {}", src))
             .done();
         Ok(())
@@ -95,7 +93,7 @@ impl Budgeting {
         category: &str,
         allocate: f64,
     ) -> Result<Category, Error> {
-        let mut budget = self.current_budget();
+        self.current_budget();
         let t = self.category_builder(category).allocated(allocate).done();
         self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
         Ok(t)
@@ -113,7 +111,7 @@ impl Budgeting {
     pub fn find_category(&mut self, category_name: &str) -> Result<Category, Error> {
         imp_db!(categories);
         imp_db!(budget_accounts);
-        let mut budget = { self.current_budget() };
+        let budget = { self.current_budget() };
         let conn = self.conn();
         let result: QueryResult<Category> = Category::belonging_to(&budget)
             .filter(name.eq(category_name))
@@ -167,7 +165,7 @@ impl Budgeting {
         if budget_account.is_ok() {
             return Err(FailedToCreateBudget(filed_as.to_string()));
         }
-        let mut b = BudgetAccountBuilder::new(self.conn(), "main").build();
+        let b = BudgetAccountBuilder::new(self.conn(), "main").build();
         self.budget = Some(b.clone());
         // create the default category
         self.category_builder(DEFAULT_CATEGORY).allocated(0.).done();
@@ -291,9 +289,10 @@ pub mod tests {
 
     #[test]
     fn allocating_money_behaviour() {
-        let mut dd = DbDropper::new();
+        let mut _dd = DbDropper::new();
         let mut blib = Budgeting::new();
-        blib.new_budget("main", 10000.);
+        blib.new_budget("main", 10000.)
+            .expect("Failed to create new budget");
         blib.create_category_and_allocate("Bills", BILLS)
             .expect("Failed to create category");
         blib.create_category_and_allocate("Travel", TRAVEL)

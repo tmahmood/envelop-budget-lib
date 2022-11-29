@@ -1,9 +1,7 @@
 use chrono::{Local, NaiveDateTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
-use log::{debug, error, info, warn};
-use std::env;
-use std::rc::Rc;
+use log::{error, info, warn};
 
 pub const DEFAULT_CATEGORY: &str = "Unallocated";
 

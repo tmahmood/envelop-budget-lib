@@ -3,28 +3,20 @@ mod imp;
 use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::transaction::transaction_row::TransactionRow;
-use crate::APP_ID;
-use adw::ffi::AdwHeaderBar;
-use adw::gio::Settings;
+
+
+
 use adw::glib::{closure_local, BindingFlags};
-use adw::prelude::ComboRowExt;
+
 use adw::prelude::*;
-use adw::{ActionRow, Application};
-use budget_manager::budgeting::budget_account::BudgetAccount;
-use budget_manager::budgeting::category::Category;
-use budget_manager::budgeting::transaction::Transaction;
+use adw::{Application};
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
-use gtk::builders::BoxBuilder;
 use gtk::glib::{clone, Object};
-use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{
-    gio, glib, Dialog, DialogFlags, Entry, Label, ListBoxRow, ListItemFactory, ListStore, ListView,
-    NoSelection, ResponseType, SignalListItemFactory, Switch, ToggleButton,
+    gio, glib, Entry, NoSelection, ResponseType,
 };
-use std::borrow::Borrow;
-use std::collections::HashMap;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -41,8 +33,8 @@ impl Window {
     pub fn setup_budget_account(&self) {
         let mut c = budget_manager::establish_connection();
         budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
-        // this section is a stab, in reality, it will be loaded from data file.
         let mut budgeting = Budgeting::new();
+        // TODO: I should allow the user to create and load saved budgets
         budgeting
             .set_current_budget("main")
             .or_else(|_| budgeting.new_budget("main", 0.))
@@ -58,10 +50,6 @@ impl Window {
             model.append(&transaction_object);
         });
         self.imp().transactions.replace(Some(model));
-        self.set_list_box();
-    }
-
-    fn set_list_box(&self) {
         let selection_model = NoSelection::new(Some(&self.transactions()));
         self.imp().transactions_list.bind_model(
             Some(&selection_model),
@@ -105,32 +93,32 @@ impl Window {
         self.imp().transactions.borrow().clone().unwrap()
     }
 
-    fn setup_settings(&self) {
-        let settings = Settings::new(APP_ID);
-        self.imp()
-            .settings
-            .set(settings)
-            .expect("Settings should not be set before calling `setup_settings`.")
-    }
+    // fn setup_settings(&self) {
+    //     let settings = Settings::new(APP_ID);
+    //     self.imp()
+    //         .settings
+    //         .set(settings)
+    //         .expect("Settings should not be set before calling `setup_settings`.")
+    // }
 
-    fn settings(&self) -> &Settings {
-        self.imp()
-            .settings
-            .get()
-            .expect("Settings should be set in `setup_settings`")
-    }
+    // fn settings(&self) -> &Settings {
+    //     self.imp()
+    //         .settings
+    //         .get()
+    //         .expect("Settings should be set in `setup_settings`")
+    // }
 
-    pub fn save_all_settings(&self) -> Result<(), glib::BoolError> {
-        // Get the size of the window
+    // pub fn save_all_settings(&self) -> Result<(), glib::BoolError> {
+    //     // Get the size of the window
 
-        // Set the window state in `settings`
-        // self.settings().set_int("window-width", size.0)?;
-        // self.settings().set_int("window-height", size.1)?;
-        // self.settings()
-        //     .set_boolean("is-maximized", self.is_maximized())?;
+    //     // Set the window state in `settings`
+    //     // self.settings().set_int("window-width", size.0)?;
+    //     // self.settings().set_int("window-height", size.1)?;
+    //     // self.settings()
+    //     //     .set_boolean("is-maximized", self.is_maximized())?;
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     /// Assure that `transactions_list` is only visible
     /// if the number of tasks is greater than 0
@@ -244,7 +232,7 @@ impl Window {
 
         let on_dialog_action = move |window: &Window,
                                      dialog: &NewTransactionDialog,
-                                     response: ResponseType,
+                                     _response: ResponseType,
                                      payee: String,
                                      note: String,
                                      amount: f64,
