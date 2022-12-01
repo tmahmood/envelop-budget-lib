@@ -3,10 +3,15 @@ mod imp;
 use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::transaction::transaction_row::TransactionRow;
+use std::borrow::{Borrow, BorrowMut};
 
 use adw::glib::{closure_local, BindingFlags};
 
-use crate::transaction::transaction_object::imp::{from_transaction_to_transfer_inner, TransactionInner};
+use crate::summary::summary_object::SummaryObject;
+use crate::summary::summary_table::SummaryTable;
+use crate::transaction::transaction_object::imp::{
+    from_transaction_to_transfer_inner, TransactionInner,
+};
 use adw::prelude::*;
 use adw::Application;
 use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
@@ -69,24 +74,43 @@ impl Window {
     }
 
     fn update_budget_details(&self) {
-        // I think it's possible to improve this, by using binding. But I'm not enough advanced to
-        // make it work, yet.
-        let mut budget = self.imp().budgeting.borrow_mut();
+        let summary_table = self.imp().summary_table.borrow().get();
+        let summary_object = SummaryObject::new(&mut self.imp().budgeting.borrow_mut());
 
-        let budget_details_available = self.imp().budget_details_available.get();
-        budget_details_available.set_text(&format!("{:02}", budget.actual_total_balance()));
+        let budget_details_available = summary_table.imp().budget_details_available.get();
+        let budget_unallocated = summary_table.imp().budget_unallocated.get();
+        let budget_allocated = summary_table.imp().budget_allocated.get();
+        let budget_total_expense = summary_table.imp().budget_total_expense.get();
+        let budget_total_income = summary_table.imp().budget_total_income.get();
+        summary_table.set_visible(true);
+        summary_object
+            .bind_property(
+                "budget-details-available",
+                &budget_details_available,
+                "label",
+            )
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
 
-        let budget_unallocated = self.imp().budget_unallocated.get();
-        budget_unallocated.set_text(&format!("{:02}", budget.uncategorized_balance()));
+        summary_object
+            .bind_property("budget-unallocated", &budget_unallocated, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
 
-        let budget_allocated = self.imp().budget_allocated.get();
-        budget_allocated.set_text(&format!("{:02}", budget.total_allocated()));
+        summary_object
+            .bind_property("budget-allocated", &budget_allocated, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
 
-        let budget_total_income = self.imp().budget_total_income.get();
-        budget_total_income.set_text(&format!("{:02}", budget.total_income()));
+        summary_object
+            .bind_property("budget-total-income", &budget_total_income, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
 
-        let budget_total_expense = self.imp().budget_total_expense.get();
-        budget_total_expense.set_text(&format!("{:02}", -1. * budget.total_expense()));
+        summary_object
+            .bind_property("budget-total-expense", &budget_total_expense, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
     }
 
     fn transactions(&self) -> gio::ListStore {
@@ -131,6 +155,7 @@ impl Window {
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
         let row = TransactionRow::new();
         let payee_label = row.imp().payee_label.get();
+        let id_label = row.imp().transaction_id_label.get();
         let note_label = row.imp().note_label.get();
         let amount_label = row.imp().amount_label.get();
         let category_name_label = row.imp().category_name_label.get();
@@ -143,6 +168,10 @@ impl Window {
             row.imp().amount_label.set_css_classes(&["error"]);
             image.set_icon_name(Some("go-down"));
         }
+        transaction_object
+            .bind_property("id", &id_label, "label")
+            .flags(BindingFlags::SYNC_CREATE)
+            .build();
         transaction_object
             .bind_property("payee", &payee_label, "label")
             .flags(BindingFlags::SYNC_CREATE)

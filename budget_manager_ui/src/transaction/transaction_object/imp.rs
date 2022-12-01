@@ -2,7 +2,6 @@ use adw::glib::{ParamSpecDouble, ParamSpecInt, ParamSpecString};
 use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use budget_manager::DEFAULT_CATEGORY;
 use chrono::NaiveDateTime;
-use clap::builder::Str;
 use glib::{ParamSpec, Value};
 use gtk::glib;
 use gtk::glib::once_cell::sync::Lazy;
@@ -10,6 +9,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::fix_float;
 
 #[derive(Default)]
 pub struct TransactionInner {
@@ -17,8 +17,8 @@ pub struct TransactionInner {
     pub note: String,
     pub payee: String,
     pub date_created: String,
-    pub amount: f64,
-    pub only_amount: f64,
+    pub amount: String,
+    pub only_amount: String,
     pub category_name: String,
     pub transfer_type: String,
 }
@@ -43,13 +43,12 @@ impl ObjectImpl for TransactionObject {
                 ParamSpecInt::builder("id").build(),
                 ParamSpecString::builder("payee").build(),
                 ParamSpecString::builder("note").build(),
-                ParamSpecDouble::builder("amount")
-                    .default_value(0.0)
+                ParamSpecString::builder("amount")
                     .build(),
                 ParamSpecString::builder("category-name")
                     .default_value(DEFAULT_CATEGORY)
                     .build(),
-                ParamSpecDouble::builder("only-amount").build(),
+                ParamSpecString::builder("only-amount").build(),
                 ParamSpecString::builder("date-created").build(),
                 ParamSpecString::builder("transaction-type").build(),
             ]
@@ -76,7 +75,7 @@ impl ObjectImpl for TransactionObject {
                 self.data.borrow_mut().note = input_value;
             }
             "amount" => {
-                let input_value = value.get().expect("The value needs to be of type `float`.");
+                let input_value = value.get().expect("The value needs to be of type `string`.");
                 self.data.borrow_mut().amount = input_value;
             }
             "category-name" => {
@@ -86,7 +85,7 @@ impl ObjectImpl for TransactionObject {
                 self.data.borrow_mut().category_name = input_value;
             }
             "only-amount" => {
-                let input_value = value.get().expect("The value needs to be of type `float`.");
+                let input_value = value.get().expect("The value needs to be of type `string`.");
                 self.data.borrow_mut().only_amount = input_value;
             }
             "transaction-type" => {
@@ -130,8 +129,8 @@ pub fn from_transaction_to_transfer_inner(transaction: &Transaction, tm: &mut Tr
         note: transaction.note(),
         payee: transaction.payee(),
         date_created: transaction.date_created_str(),
-        amount: transaction.amount(),
-        only_amount: transaction.only_amount(),
+        amount: fix_float(transaction.amount()),
+        only_amount: fix_float(transaction.only_amount()),
         category_name: tm.category_name(),
         transfer_type,
     }

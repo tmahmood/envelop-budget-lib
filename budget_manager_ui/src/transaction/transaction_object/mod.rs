@@ -1,6 +1,7 @@
 pub mod imp;
 
 use adw::subclass::prelude::ObjectSubclassIsExt;
+use clap::builder::Str;
 use budget_manager::budgeting::transaction::{Transaction, TransactionModel};
 use gtk::glib;
 use gtk::glib::Object;
@@ -24,6 +25,10 @@ impl TransactionObject {
             .build()
     }
 
+    pub fn id(&self) -> i32 {
+        self.imp().data.borrow().id
+    }
+
     pub fn category_name(&self) -> String {
         self.imp().data.borrow().category_name.clone()
     }
@@ -36,15 +41,19 @@ impl TransactionObject {
         self.imp().data.borrow().note.clone()
     }
 
-    pub fn amount(&self) -> f64 {
-        self.imp().data.borrow().amount
+    pub fn amount(&self) -> String {
+        self.imp().data.borrow().amount.clone()
     }
 
-    pub fn only_amount(&self) -> f64 {
-        self.imp().data.borrow().only_amount
+    pub fn only_amount(&self) -> String {
+        self.imp().data.borrow().only_amount.clone()
     }
 
     pub fn transaction_type(&self) -> String {
         self.imp().data.borrow().transfer_type.clone()
+    }
+
+    pub fn date_created(&self) -> String {
+        self.imp().data.borrow().date_created.clone()
     }
 }

@@ -14,6 +14,7 @@ use gtk::gio::glib::once_cell::sync::OnceCell;
 use gtk::CompositeTemplate;
 
 use budget_manager::budgeting::Budgeting;
+use crate::summary::summary_table::SummaryTable;
 
 #[derive(CompositeTemplate, Default)]
 #[template(file = "../../resources/main_window.ui")]
@@ -25,19 +26,7 @@ pub struct Window {
     pub transactions_list: TemplateChild<ListBox>,
 
     #[template_child]
-    pub budget_details_available: TemplateChild<Label>,
-
-    #[template_child]
-    pub budget_total_expense: TemplateChild<Label>,
-
-    #[template_child]
-    pub budget_unallocated: TemplateChild<Label>,
-
-    #[template_child]
-    pub budget_allocated: TemplateChild<Label>,
-
-    #[template_child]
-    pub budget_total_income: TemplateChild<Label>,
+    pub summary_table: TemplateChild<SummaryTable>,
 
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub expense_categories: RefCell<Option<gio::ListStore>>,

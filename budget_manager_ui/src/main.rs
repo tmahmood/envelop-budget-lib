@@ -1,21 +1,10 @@
 use adw::prelude::*;
 
-
-
-
-
-
-
-
-
 use adw::{gio, Application};
-
-
-
-
 
 use crate::window::Window;
 
+mod summary;
 mod expense_category;
 mod new_transaction_dialog;
 mod transaction;
@@ -40,3 +29,9 @@ fn build_ui(app: &Application) {
     let window = Window::new(app);
     window.show();
 }
+
+fn fix_float(float: f64) -> String {
+    // format with the given computed precision
+    format!("{0:.2}", float)
+}
+
