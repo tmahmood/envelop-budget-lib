@@ -1,4 +1,4 @@
-use crate::budgeting::Error::{CategoryAlreadyExists, CategoryNotFound, CategoryUpdateFailed};
+use crate::budgeting::budgeting_errors::BudgetingErrors::{CategoryAlreadyExists, CategoryNotFound, CategoryUpdateFailed};
 use crate::schema::budget_accounts;
 use chrono::NaiveDateTime;
 use diesel::backend::Backend;
@@ -15,7 +15,7 @@ use std::hash::Hash;
 
 use crate::budgeting::transaction::{Transaction, TransactionBuilder};
 use crate::budgeting::category::{Category, CategoryBuilder};
-use crate::budgeting::Error;
+use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{current_date, establish_connection, DEFAULT_CATEGORY};
 

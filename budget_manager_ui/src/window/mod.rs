@@ -4,22 +4,34 @@ use crate::new_transaction_dialog::NewTransactionDialog;
 use crate::transaction::transaction_object::TransactionObject;
 use crate::transaction::transaction_row::TransactionRow;
 use std::borrow::{Borrow, BorrowMut};
+use std::fmt::Error;
+use std::num::ParseFloatError;
+use std::ops::Deref;
 
 use adw::glib::{closure_local, BindingFlags};
 
+use crate::category::category_object::CategoryObject;
+use crate::category::category_row::CategoryRow;
 use crate::summary::summary_object::SummaryObject;
 use crate::summary::summary_table::SummaryTable;
 use crate::transaction::transaction_object::imp::{
     from_transaction_to_transfer_inner, TransactionInner,
 };
+use crate::window::CommandLineErrors::ParsingFloatError;
+use adw::builders::ToastBuilder;
 use adw::prelude::*;
 use adw::Application;
+use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
+use budget_manager::budgeting::category::Category;
 use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
+use clap::builder::Str;
+use gtk::ffi::GtkEntry;
 use gtk::glib::{clone, Object};
 use gtk::subclass::prelude::*;
-use gtk::{gio, glib, Entry, NoSelection, ResponseType};
+use gtk::{gio, glib, Entry, NoSelection, ResponseType, ListBox, ToggleButton};
+use rand::distributions::uniform::SampleBorrow;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -34,6 +46,7 @@ impl Window {
     }
 
     pub fn setup_budget_account(&self) {
+        self.imp().current_category_id.replace(1);
         let mut c = budget_manager::establish_connection();
         budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
         let mut budgeting = Budgeting::new();
@@ -48,10 +61,14 @@ impl Window {
     fn setup_transactions(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let model = gio::ListStore::new(TransactionObject::static_type());
-        budgeting.transactions().iter().for_each(|transaction| {
+        let cid = self.imp().current_category_id.borrow();
+        let mut category = budgeting
+            .get_category_model_by_id(cid.deref().clone())
+            .unwrap();
+        category.transactions().iter().for_each(|transaction| {
+            // TODO: Category not set correctly
             let mut tm = budgeting.transaction_model(transaction.clone());
-            let lt = from_transaction_to_transfer_inner(transaction, &mut tm);
-            let transaction_object = TransactionObject::new(lt);
+            let transaction_object = TransactionObject::new(&mut tm);
             model.append(&transaction_object);
         });
         self.imp().transactions.replace(Some(model));
@@ -65,134 +82,77 @@ impl Window {
             }),
         );
         let transactions = self.transactions();
-        self.set_transactions_list_visible(&transactions);
+        self.set_transactions_list_visible_only_when_there_are_transactions(&transactions);
         self.transactions().connect_items_changed(
             clone!(@weak self as window => move |transactions, _, _, _| {
-                window.set_transactions_list_visible(transactions);
+                window.set_transactions_list_visible_only_when_there_are_transactions(transactions);
             }),
         );
     }
 
-    fn update_budget_details(&self) {
-        let summary_table = self.imp().summary_table.borrow().get();
-        let summary_object = SummaryObject::new(&mut self.imp().budgeting.borrow_mut());
-
-        let budget_details_available = summary_table.imp().budget_details_available.get();
-        let budget_unallocated = summary_table.imp().budget_unallocated.get();
-        let budget_allocated = summary_table.imp().budget_allocated.get();
-        let budget_total_expense = summary_table.imp().budget_total_expense.get();
-        let budget_total_income = summary_table.imp().budget_total_income.get();
-        summary_table.set_visible(true);
-        summary_object
-            .bind_property(
-                "budget-details-available",
-                &budget_details_available,
-                "label",
-            )
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-
-        summary_object
-            .bind_property("budget-unallocated", &budget_unallocated, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-
-        summary_object
-            .bind_property("budget-allocated", &budget_allocated, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-
-        summary_object
-            .bind_property("budget-total-income", &budget_total_income, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-
-        summary_object
-            .bind_property("budget-total-expense", &budget_total_expense, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
+    fn setup_categories(&self) {
+        let mut budgeting = self.imp().budgeting.borrow_mut();
+        let model = gio::ListStore::new(CategoryObject::static_type());
+        budgeting.categories().iter().for_each(|category| {
+            let mut cm = budgeting.category_model(category.clone());
+            let category_object = CategoryObject::new(&mut cm);
+            model.append(&category_object);
+        });
+        self.imp().categories.replace(Some(model));
+        let selection_model = NoSelection::new(Some(&self.categories()));
+        self.imp().categories_list.bind_model(
+            Some(&selection_model),
+            clone!(@weak self as window => @default-panic, move |obj| {
+                let category_obj = obj.downcast_ref().expect("The object should be of type `CategoryObject`.");
+                let row = window.create_category_row(category_obj);
+                row.upcast()
+            }),
+        );
+        let categories = self.categories();
+        self.set_categories_list_visible_only_when_there_are_categories(&categories);
+        self.categories().connect_items_changed(
+            clone!(@weak self as window => move |categories, _, _, _| {
+                window.set_categories_list_visible_only_when_there_are_categories(categories);
+            }),
+        );
     }
 
-    fn transactions(&self) -> gio::ListStore {
+    pub(crate) fn update_budget_details(&self) {
+        let summary_table = self.imp().summary_table.borrow().get();
+        let summary_object = SummaryObject::new(&mut self.imp().budgeting.borrow_mut());
+        summary_table.bind_summary(&summary_object);
+    }
+
+    pub(crate) fn transactions(&self) -> gio::ListStore {
         self.imp().transactions.borrow().clone().unwrap()
     }
 
-    // fn setup_settings(&self) {
-    //     let settings = Settings::new(APP_ID);
-    //     self.imp()
-    //         .settings
-    //         .set(settings)
-    //         .expect("Settings should not be set before calling `setup_settings`.")
-    // }
+    fn categories(&self) -> gio::ListStore {
+        self.imp().categories.borrow().clone().unwrap()
+    }
 
-    // fn settings(&self) -> &Settings {
-    //     self.imp()
-    //         .settings
-    //         .get()
-    //         .expect("Settings should be set in `setup_settings`")
-    // }
+    pub(crate) fn current_category_id(&self) -> i32 {
+        *self.imp().current_category_id.borrow().deref()
+    }
 
-    // pub fn save_all_settings(&self) -> Result<(), glib::BoolError> {
-    //     // Get the size of the window
-
-    //     // Set the window state in `settings`
-    //     // self.settings().set_int("window-width", size.0)?;
-    //     // self.settings().set_int("window-height", size.1)?;
-    //     // self.settings()
-    //     //     .set_boolean("is-maximized", self.is_maximized())?;
-
-    //     Ok(())
-    // }
-
-    /// Assure that `transactions_list` is only visible
-    /// if the number of tasks is greater than 0
-    fn set_transactions_list_visible(&self, transactions: &gio::ListStore) {
+    fn set_transactions_list_visible_only_when_there_are_transactions(&self, transactions: &gio::ListStore) {
         self.imp()
             .transactions_list
             .set_visible(transactions.n_items() > 0);
     }
 
+    fn set_categories_list_visible_only_when_there_are_categories(&self, categories: &gio::ListStore) {
+        self.imp()
+            .categories_list
+            .set_visible(categories.n_items() > 0);
+    }
+
+    fn create_category_row(&self, category_object: &CategoryObject) -> CategoryRow {
+        CategoryRow::new().bind_objects(category_object)
+    }
+
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
-        let row = TransactionRow::new();
-        let payee_label = row.imp().payee_label.get();
-        let id_label = row.imp().transaction_id_label.get();
-        let note_label = row.imp().note_label.get();
-        let amount_label = row.imp().amount_label.get();
-        let category_name_label = row.imp().category_name_label.get();
-        let image = row.imp().transaction_type.get();
-        let date_created_label = row.imp().date_created_label.get();
-        if transaction_object.transaction_type() == "Income" {
-            row.imp().amount_label.set_css_classes(&["success"]);
-            image.set_icon_name(Some("go-up"));
-        } else {
-            row.imp().amount_label.set_css_classes(&["error"]);
-            image.set_icon_name(Some("go-down"));
-        }
-        transaction_object
-            .bind_property("id", &id_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        transaction_object
-            .bind_property("payee", &payee_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        transaction_object
-            .bind_property("note", &note_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        transaction_object
-            .bind_property("only-amount", &amount_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        transaction_object
-            .bind_property("category-name", &category_name_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        transaction_object
-            .bind_property("date-created", &date_created_label, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-        row
+        TransactionRow::new().bind_objects(transaction_object)
     }
 
     fn setup_actions(&self) {
@@ -207,137 +167,158 @@ impl Window {
     fn new_transaction(&self) {
         // Create new Dialog
         let dialog = NewTransactionDialog::new(self);
-        let dialog_button = dialog
-            .widget_for_response(ResponseType::Accept)
-            .expect("The dialog needs to have a widget for response type `Accept`.");
-        dialog_button.set_sensitive(false);
-
-        let entry_payee = dialog.imp().entry_payee.get();
-        let entry_note = dialog.imp().entry_note.get();
-        let entry_amount = dialog.imp().entry_amount.get();
-        let toggle_income = dialog.imp().toggle_income.get();
-
-        let safe_entry = |dialog: &NewTransactionDialog,
-                          current_entry: &Entry,
-                          is_num: bool,
-                          e1: &Entry,
-                          e2: &Entry,
-                          e3: &Entry|
-         -> bool {
-            let dialog_button = dialog
-                .widget_for_response(ResponseType::Accept)
-                .expect("The dialog needs to have a widget for response type `Accept`.");
-
-            let f = |entry: &Entry| {
-                dialog_button.set_sensitive(false);
-                entry.add_css_class("error");
-            };
-            if current_entry.text().is_empty() {
-                f(current_entry);
-                return false;
-            }
-            if is_num && current_entry.text().parse::<f64>().is_err() {
-                f(current_entry);
-                return false;
-            }
-            if e1.text().is_empty() || e2.text().is_empty() || e3.text().is_empty() {
-                dialog_button.set_sensitive(false);
-            } else {
-                dialog_button.set_sensitive(true);
-            }
-            current_entry.remove_css_class("error");
-            return true;
-        };
-
-        entry_payee.connect_changed(clone!(
-            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
-        entry_amount.connect_changed(clone!(
-            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
-        entry_note.connect_changed(clone!(
-            @weak dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
-
-        let on_dialog_action = move |window: &Window,
-                                     dialog: &NewTransactionDialog,
-                                     _response: ResponseType,
-                                     payee: String,
-                                     note: String,
-                                     amount: f64,
-                                     is_income: bool| {
-            dialog.destroy();
-            // TODO must replace with actual transaction category
-            let category = DEFAULT_CATEGORY;
-            {
-                let mut budgeting = window.imp().budgeting.borrow_mut();
-                let transaction = if is_income {
-                    budgeting
-                        .new_transaction_to_category(category)
-                        .income(amount)
-                        .payee(&payee)
-                        .note(&note)
-                        .done()
-                } else {
-                    budgeting
-                        .new_transaction_to_category(category)
-                        .expense(amount)
-                        .payee(&payee)
-                        .note(&note)
-                        .done()
-                };
-                println!("{:?}", transaction);
-                let mut tm = budgeting.transaction_model(transaction.clone());
-                let transfer_type =
-                    String::from(TransactionType::from(transaction.transfer_type_id()));
-                let lt = from_transaction_to_transfer_inner(&transaction, &mut tm);
-                let transactions = window.transactions();
-                transactions.append(&TransactionObject::new(lt));
-            }
-            dialog.emit_by_name::<()>("budget-updated", &[&1]);
-        };
-
-        // Connect response to dialog
-        dialog.connect_response(clone!(
-            @weak self as window, @weak entry_payee => move |dialog, response| {
-                // Return if the user chose a response different than `Accept`
-                if response != ResponseType::Accept {
-                    dialog.destroy();
-                    return;
-                }
-                let payee = entry_payee.buffer().text();
-                let note = entry_note.buffer().text();
-                let amount = entry_amount.buffer().text().parse::<f64>().unwrap();
-                on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.state());
-            }
-        ));
-
-        let update_subtitle_and_other_things = clone!(@weak self as window => move || {
-            window.update_budget_details()
-        });
-
-        dialog.connect_closure(
-            "budget-updated",
-            false,
-            closure_local!(
-                move |_: NewTransactionDialog, _: i32| update_subtitle_and_other_things()
-            ),
-        );
-
+        dialog.do_things(&self);
         dialog.present();
     }
 
     fn setup_callbacks(&self) {
-        // let model = self.expense_category();
-        // self.imp().expense_category_entry.connect_activate(clone!(@weak model => move |entry| {
-        //     let buffer = entry.buffer();
-        //     let content = buffer.text();
-        //     let mut splited = str::split(&content, '#');
-        //     let name = splited.next().unwrap().trim().to_string();
-        //     let max_budget = splited.next().unwrap().trim().parse::<f64>().unwrap();
-        //     let expense_category_object = ExpenseCategoryObject::new(name, max_budget);
-        //     model.append(&expense_category_object);
-        //     buffer.set_text("");
-        // }));
+        let on_entry_callback = |entry: &Entry, window: &Window| {
+            let txt = entry.text();
+            let (start, info) = match txt.split_once(" ") {
+                None => {
+                    window.show_toast("Please enter a valid command");
+                    return;
+                }
+                Some(v) => v,
+            };
+            window.execute_command(start, info);
+        };
+
+        self.imp().entry_command.connect_activate(
+            clone!(@weak self as window => move |entry| { on_entry_callback(entry, &window)}),
+        );
+
     }
+
+    fn show_toast(&self, text: &str) {
+        let t = self.imp().toast_overlay.get();
+        let toast = ToastBuilder::new().title(text).build();
+        t.add_toast(&toast);
+        t.show();
+    }
+
+    fn execute_command(&self, start: &str, info: &str) {
+        let result = match start {
+            "nc" => self.new_category_command(info),
+            "sc" => self.select_category_command(info),
+            // "nt" => self.new_transaction_command(info),
+            _ => Err(CommandLineErrors::UnknownCommand),
+        };
+        let s = match result {
+            Ok(s) => s,
+            Err(CommandLineErrors::FailedToCreateCategory(e)) => e,
+            Err(_) => "Unknown Error".to_string(),
+        };
+        if s != "" {
+            self.show_toast(&s);
+        }
+    }
+
+    fn select_category_command(&self, txt: &str) -> Result<String, CommandLineErrors> {
+        let info = split_by_pattern(txt, " ");
+        if info.len() != 1 {
+            return Err(CommandLineErrors::IncompleteCommand);
+        }
+        let f = match info[0].parse::<i32>() {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(CommandLineErrors::FailedToSelectCategory(format!(
+                    "Failed to parse int {}, {}",
+                    info[1],
+                    e.to_string()
+                )))
+            }
+        };
+        self.imp().current_category_id.replace(f);
+        self.setup_transactions();
+        Ok("".to_string())
+    }
+
+    fn new_category_command(&self, txt: &str) -> Result<String, CommandLineErrors> {
+        let (category_name, amount) = parse_new_category_command(&txt)?;
+        match {
+            let mut budgeting = self.imp().budgeting.borrow_mut();
+            budgeting.create_category_and_allocate(&category_name, amount)
+        } {
+            Ok(v) => {
+                {
+                    let mut budgeting = self.imp().budgeting.borrow_mut();
+                    let model = self.categories();
+                    let mut cm = budgeting.category_model(v.clone());
+                    let category_object = CategoryObject::new(&mut cm);
+                    model.append(&category_object);
+                    self.imp().categories.replace(Some(model));
+                }
+                self.setup_transactions();
+                self.update_budget_details();
+                return Ok("New Category added".to_string());
+            }
+            Err(BudgetingErrors::FailedToCreateCategory(err_str)) => {
+                Err(CommandLineErrors::FailedToCreateCategory(format!(
+                    "Failed to add category: {}",
+                    err_str
+                )))
+            }
+            Err(BudgetingErrors::CategoryAlreadyExists) => Err(
+                CommandLineErrors::FailedToCreateCategory("Category already exists".to_string()),
+            ),
+            _ => Err(CommandLineErrors::FailedToCreateCategory(
+                "Failed to create category due to unknown error".to_string(),
+            )),
+        }
+    }
+
+    fn new_transaction_command(&self, txt: &str) {
+        todo!()
+    }
+}
+
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum CommandLineErrors {
+    #[error("Failed to parse amount, must be valid float")]
+    ParsingFloatError(String),
+    #[error("Incomplete Command")]
+    IncompleteCommand,
+    #[error("Unknown Command")]
+    UnknownCommand,
+    #[error("Failed to create category")]
+    FailedToCreateCategory(String),
+    #[error("Failed to select category")]
+    FailedToSelectCategory(String),
+}
+
+fn split_by_pattern(s: &str, p: &str) -> Vec<String> {
+    s.split(p).map(|v: &str| v.trim().to_string()).collect()
+}
+
+fn parse_new_category_command(info: &str) -> Result<(String, f64), CommandLineErrors> {
+    let info = split_by_pattern(info, "@");
+    if info.len() < 2 {
+        return Err(CommandLineErrors::IncompleteCommand);
+    }
+    let f = match info[1].parse::<f64>() {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(CommandLineErrors::FailedToCreateCategory(format!(
+                "Failed to parse float {}, {}",
+                info[1],
+                e.to_string()
+            )))
+        }
+    };
+    Ok((info[0].clone(), f))
+}
+
+impl From<ParseFloatError> for CommandLineErrors {
+    fn from(value: ParseFloatError) -> Self {
+        ParsingFloatError(value.to_string())
+    }
+}
+
+#[test]
+pub fn test_parsing_command() {
+    let cmd = "nc Bills @ 3000";
+    let (n, a): (String, f64) = parse_new_category_command(cmd).unwrap();
+    assert_eq!(n, "Bills");
+    assert_eq!(a, 3000.);
 }

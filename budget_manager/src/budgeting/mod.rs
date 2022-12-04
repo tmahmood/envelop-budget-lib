@@ -1,9 +1,12 @@
 use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder, NewBudgetAccount};
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
 use crate::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
-use crate::budgeting::Error::{BudgetAccountNotFound, CategoryNotFound, FailedToCreateBudget};
 use crate::transaction_op::TransactionAddToCategoryOps;
 use crate::{establish_connection, DEFAULT_CATEGORY};
+use budgeting_errors::BudgetingErrors;
+use budgeting_errors::BudgetingErrors::{
+    BudgetAccountNotFound, CategoryNotFound, FailedToCreateBudget,
+};
 use diesel::connection::BoxableConnection;
 use diesel::dsl::sum;
 use diesel::{QueryResult, SqliteConnection};
@@ -12,25 +15,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub mod budget_account;
+pub mod budgeting_errors;
 pub mod category;
 pub mod storage;
 pub mod transaction;
-
-#[derive(thiserror::Error, Debug, Clone)]
-pub enum Error {
-    #[error("Error transferring fund from one category to other")]
-    FundTransferError,
-    #[error("Category does not exist")]
-    CategoryNotFound,
-    #[error("Category already exists")]
-    CategoryAlreadyExists,
-    #[error("Category update failed")]
-    CategoryUpdateFailed,
-    #[error("Budget Account not found")]
-    BudgetAccountNotFound(String),
-    #[error("Failed to create budget")]
-    FailedToCreateBudget(String),
-}
 
 mod builder {
     pub trait Builder {
@@ -73,7 +61,7 @@ impl Budgeting {
         src: &str,
         dest: &str,
         amount: f64,
-    ) -> Result<(), Error> {
+    ) -> Result<(), BudgetingErrors> {
         self.new_transaction_to_category(src)
             .transfer_from(amount)
             .payee(dest)
@@ -92,9 +80,9 @@ impl Budgeting {
         &mut self,
         category: &str,
         allocate: f64,
-    ) -> Result<Category, Error> {
+    ) -> Result<Category, BudgetingErrors> {
         self.current_budget();
-        let t = self.category_builder(category).allocated(allocate).done();
+        let t = self.category_builder(category).allocated(allocate).done()?;
         self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
         Ok(t)
     }
@@ -112,7 +100,21 @@ impl Budgeting {
         self.category_model(c)
     }
 
-    pub fn find_category(&mut self, category_name: &str) -> Result<Category, Error> {
+    pub fn get_category_model_by_id(
+        &mut self,
+        category_id: i32,
+    ) -> Result<CategoryModel, BudgetingErrors> {
+        let budget = { self.current_budget() };
+        imp_db!(categories);
+        let result: QueryResult<Category> = Category::belonging_to(&budget)
+            .filter(id.eq(category_id))
+            .first(self.conn());
+        result
+            .and_then(move |v| Ok(self.category_model(v)))
+            .map_err(|e| CategoryNotFound)
+    }
+
+    pub fn find_category(&mut self, category_name: &str) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
         imp_db!(budget_accounts);
         let budget = { self.current_budget() };
@@ -142,10 +144,7 @@ impl Budgeting {
         b.clone()
     }
 
-    pub fn set_current_budget(
-        &mut self,
-        filed_as: &str,
-    ) -> Result<BudgetAccount, Error> {
+    pub fn set_current_budget(&mut self, filed_as: &str) -> Result<BudgetAccount, BudgetingErrors> {
         let b = self.find_budget(filed_as);
         if b.is_err() {
             return Err(BudgetAccountNotFound(filed_as.to_string()));
@@ -164,7 +163,7 @@ impl Budgeting {
         &mut self,
         filed_as: &str,
         amount: f64,
-    ) -> Result<BudgetAccount, Error> {
+    ) -> Result<BudgetAccount, BudgetingErrors> {
         let budget_account = self.find_budget(filed_as);
         if budget_account.is_ok() {
             return Err(FailedToCreateBudget(filed_as.to_string()));
@@ -279,8 +278,8 @@ impl Budgeting {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::budgeting::budgeting_errors::BudgetingErrors::FundTransferError;
     use crate::budgeting::transaction::Transaction;
-    use crate::budgeting::Error::FundTransferError;
     use crate::test_helpers::{new_budget_using_budgeting, DbDropper};
     use crate::tests::{BILLS, DEFAULT_ID, INITIAL, TRAVEL, UNUSED};
     use diesel::prelude::*;

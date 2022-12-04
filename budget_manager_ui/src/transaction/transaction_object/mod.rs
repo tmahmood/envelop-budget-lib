@@ -5,14 +5,15 @@ use clap::builder::Str;
 use budget_manager::budgeting::transaction::{Transaction, TransactionModel};
 use gtk::glib;
 use gtk::glib::Object;
-use crate::transaction::transaction_object::imp::TransactionInner;
+use crate::transaction::transaction_object::imp::{from_transaction_to_transfer_inner, TransactionInner};
 
 glib::wrapper! {
     pub struct TransactionObject(ObjectSubclass<imp::TransactionObject>);
 }
 
 impl TransactionObject {
-    pub fn new(transaction_inner: TransactionInner) -> Self {
+    pub fn new(tm: &mut TransactionModel) -> Self {
+        let transaction_inner = from_transaction_to_transfer_inner(tm);
         Object::builder()
             .property("id", &transaction_inner.id)
             .property("payee", &transaction_inner.payee)
@@ -21,7 +22,7 @@ impl TransactionObject {
             .property("only-amount", &transaction_inner.only_amount)
             .property("category-name", &transaction_inner.category_name)
             .property("date-created", &transaction_inner.date_created)
-            .property("transaction-type", &transaction_inner.transfer_type)
+            .property("transaction-type", &transaction_inner.transaction_type)
             .build()
     }
 
@@ -50,7 +51,7 @@ impl TransactionObject {
     }
 
     pub fn transaction_type(&self) -> String {
-        self.imp().data.borrow().transfer_type.clone()
+        self.imp().data.borrow().transaction_type.clone()
     }
 
     pub fn date_created(&self) -> String {

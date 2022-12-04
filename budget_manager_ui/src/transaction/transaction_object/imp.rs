@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use crate::fix_float;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TransactionInner {
     pub id: i32,
     pub note: String,
@@ -20,7 +20,7 @@ pub struct TransactionInner {
     pub amount: String,
     pub only_amount: String,
     pub category_name: String,
-    pub transfer_type: String,
+    pub transaction_type: String,
 }
 // Object holding the state
 #[derive(Default)]
@@ -45,9 +45,7 @@ impl ObjectImpl for TransactionObject {
                 ParamSpecString::builder("note").build(),
                 ParamSpecString::builder("amount")
                     .build(),
-                ParamSpecString::builder("category-name")
-                    .default_value(DEFAULT_CATEGORY)
-                    .build(),
+                ParamSpecString::builder("category-name").build(),
                 ParamSpecString::builder("only-amount").build(),
                 ParamSpecString::builder("date-created").build(),
                 ParamSpecString::builder("transaction-type").build(),
@@ -92,7 +90,7 @@ impl ObjectImpl for TransactionObject {
                 let input_value = value
                     .get()
                     .expect("the value needs to be of type `string`.");
-                self.data.borrow_mut().transfer_type = input_value;
+                self.data.borrow_mut().transaction_type = input_value;
             }
             "date-created" => {
                 let input_value = value
@@ -116,22 +114,22 @@ impl ObjectImpl for TransactionObject {
             "only-amount" => self.data.borrow().only_amount.to_value(),
             "category-name" => self.data.borrow().category_name.to_value(),
             "date-created" => self.data.borrow().date_created.to_value(),
-            "transaction-type" => self.data.borrow().transfer_type.to_value(),
+            "transaction-type" => self.data.borrow().transaction_type.to_value(),
             _ => unimplemented!(),
         }
     }
 }
 
-pub fn from_transaction_to_transfer_inner(transaction: &Transaction, tm: &mut TransactionModel) -> TransactionInner {
-    let transfer_type = String::from(TransactionType::from(transaction.transfer_type_id()));
+pub fn from_transaction_to_transfer_inner(tm: &mut TransactionModel) -> TransactionInner {
+    let transfer_type = String::from(TransactionType::from(tm.transaction().transfer_type_id()));
     TransactionInner {
-        id: transaction.id(),
-        note: transaction.note(),
-        payee: transaction.payee(),
-        date_created: transaction.date_created_str(),
-        amount: fix_float(transaction.amount()),
-        only_amount: fix_float(transaction.only_amount()),
+        id: tm.transaction().id(),
+        note: tm.transaction().note(),
+        payee: tm.transaction().payee(),
+        date_created: tm.transaction().date_created_str(),
+        amount: fix_float(tm.transaction().amount()),
+        only_amount: fix_float(tm.transaction().only_amount()),
         category_name: tm.category_name(),
-        transfer_type,
+        transaction_type: transfer_type,
     }
 }

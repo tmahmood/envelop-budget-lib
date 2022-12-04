@@ -5,7 +5,7 @@ use adw::{gio, Application};
 use crate::window::Window;
 
 mod summary;
-mod expense_category;
+mod category;
 mod new_transaction_dialog;
 mod transaction;
 mod window;

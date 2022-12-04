@@ -4,8 +4,11 @@ use crate::budgeting::transaction::{Transaction, TransactionBuilder, Transaction
 use crate::schema::categories;
 use diesel::dsl::sum;
 use diesel::prelude::*;
+use diesel::result::DatabaseErrorKind;
 use diesel::sqlite::Sqlite;
+use gtk::cairo::Error;
 use serde::{Deserialize, Serialize};
+use crate::budgeting::budgeting_errors::BudgetingErrors;
 
 #[derive(
     Debug,
@@ -61,6 +64,20 @@ impl Category {
     pub fn id(&self) -> i32 {
         self.id
     }
+
+    pub fn set_id(&mut self, id: i32) {
+        self.id = id;
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+    pub fn set_allocated(&mut self, allocated: f64) {
+        self.allocated = allocated;
+    }
+    pub fn set_budget_account_id(&mut self, budget_account_id: i32) {
+        self.budget_account_id = budget_account_id;
+    }
 }
 
 impl<'a> CategoryBuilder<'a> {
@@ -79,22 +96,37 @@ impl<'a> CategoryBuilder<'a> {
     }
 
     // put the transaction category details together and save to database, returned the saved transaction
-    pub fn done(&mut self) -> Category {
+    pub fn done(&mut self) -> Result<Category, BudgetingErrors> {
         let mut t = NewTransactionCategory {
             name: self.name.as_str(),
             allocated: self.allocated,
             budget_account_id: self.budget_account_id,
         };
         imp_db!(categories);
-        diesel::insert_into(categories::table)
+        let r = diesel::insert_into(categories::table)
             .values(&t)
-            .execute(self.conn)
-            .expect("Error saving new category");
-        categories
+            .execute(self.conn);
+        match r {
+            Ok(_) => {}
+            Err(diesel::result::Error::DatabaseError(e, ..)) => {
+                return match e {
+                    DatabaseErrorKind::UniqueViolation => Err(BudgetingErrors::CategoryAlreadyExists),
+                    _ => Err(BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())),
+                }
+            },
+            Err(_) => {
+                return Err(BudgetingErrors::FailedToCreateCategory("Not sure about this error".to_string()))
+            }
+        }
+
+        let r = categories
             .order(id.desc())
             .limit(1)
             .first::<Category>(self.conn)
-            .unwrap()
+            .or_else(|e: diesel::result::Error| {
+                Err(BudgetingErrors::CategoryNotFound)
+            })?;
+        Ok(r)
     }
 }
 
@@ -138,12 +170,12 @@ impl<'a> CategoryModel<'a> {
             .expect("Error deleting transaction category")
     }
 
-    pub(crate) fn load(conn: &mut SqliteConnection, id: i32) -> QueryResult<Category> {
+    pub(crate) fn load(conn: &mut SqliteConnection, cid: i32) -> QueryResult<Category> {
         imp_db!(categories);
-        categories.find(id).first(conn)
+        categories.find(cid).first::<Category>(conn)
     }
 
-    pub(crate) fn transactions(&mut self) -> Vec<Transaction> {
+    pub fn transactions(&mut self) -> Vec<Transaction> {
         imp_db!(transactions);
         transactions
             .filter(category_id.eq(self.category.id))
@@ -203,7 +235,7 @@ mod tests {
         let mut conn = &mut d.conn();
         let category = CategoryBuilder::new(conn, 1, "Testing")
             .allocated(6000.)
-            .done();
+            .done().unwrap();
         let mut cm = CategoryModel::new(conn, category);
         cm.new_transaction(3000., &TransactionType::Expense)
             .payee("Payee 1")

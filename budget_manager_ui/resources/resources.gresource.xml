@@ -5,6 +5,7 @@
       <file compressed="true" preprocess="xml-stripblanks">new_transaction_dialog.ui</file>
       <file compressed="true" preprocess="xml-stripblanks">transaction_row.ui</file>
       <file compressed="true" preprocess="xml-stripblanks">budget_balance_entry.ui</file>
-      <file compressed="true" preprocess="xml-stripblanks">expense_category_row.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">category_row.ui</file>
+      <file compressed="true" preprocess="xml-stripblanks">summary.ui</file>
   </gresource>
 </gresources>
