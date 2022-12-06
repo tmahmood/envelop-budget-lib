@@ -12,25 +12,17 @@ use adw::glib::{closure_local, BindingFlags};
 
 use crate::category::category_object::CategoryObject;
 use crate::category::category_row::CategoryRow;
+use crate::fix_float;
+use crate::summary::summary_object::imp::SummaryData;
 use crate::summary::summary_object::SummaryObject;
-use crate::summary::summary_table::SummaryTable;
-use crate::transaction::transaction_object::imp::{
-    from_transaction_to_transfer_inner, TransactionInner,
-};
-use crate::window::CommandLineErrors::ParsingFloatError;
 use adw::builders::ToastBuilder;
 use adw::prelude::*;
 use adw::Application;
 use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
-use budget_manager::budgeting::category::Category;
-use budget_manager::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use budget_manager::budgeting::Budgeting;
-use budget_manager::DEFAULT_CATEGORY;
-use clap::builder::Str;
-use gtk::ffi::GtkEntry;
 use gtk::glib::{clone, Object};
 use gtk::subclass::prelude::*;
-use gtk::{gio, glib, Entry, NoSelection, ResponseType, ListBox, ToggleButton};
+use gtk::{gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, ToggleButton};
 use rand::distributions::uniform::SampleBorrow;
 
 glib::wrapper! {
@@ -65,8 +57,10 @@ impl Window {
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
+        self.imp()
+            .transaction_title
+            .set_title(&category.category().name());
         category.transactions().iter().for_each(|transaction| {
-            // TODO: Category not set correctly
             let mut tm = budgeting.transaction_model(transaction.clone());
             let transaction_object = TransactionObject::new(&mut tm);
             model.append(&transaction_object);
@@ -93,7 +87,7 @@ impl Window {
     fn setup_categories(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let model = gio::ListStore::new(CategoryObject::static_type());
-        budgeting.categories().iter().for_each(|category| {
+        budgeting.all_categories().iter().for_each(|category| {
             let mut cm = budgeting.category_model(category.clone());
             let category_object = CategoryObject::new(&mut cm);
             model.append(&category_object);
@@ -118,8 +112,26 @@ impl Window {
     }
 
     pub(crate) fn update_budget_details(&self) {
+        let mut budgeting = self.imp().budgeting.borrow_mut();
+        let cid = self.imp().current_category_id.borrow();
+        let mut category = budgeting
+            .get_category_model_by_id(cid.deref().clone())
+            .unwrap();
+        let total_expense = fix_float(category.expense());
+        let total_income = fix_float(category.income());
+        let transfer_in = fix_float(category.transfer_in());
+        let transfer_out = fix_float(category.transfer_out());
+        let balance = fix_float(category.balance());
+
         let summary_table = self.imp().summary_table.borrow().get();
-        let summary_object = SummaryObject::new(&mut self.imp().budgeting.borrow_mut());
+        let summary_data = SummaryData {
+            balance,
+            transfer_in,
+            transfer_out,
+            total_income,
+            total_expense,
+        };
+        let summary_object = SummaryObject::new(summary_data);
         summary_table.bind_summary(&summary_object);
     }
 
@@ -135,13 +147,19 @@ impl Window {
         *self.imp().current_category_id.borrow().deref()
     }
 
-    fn set_transactions_list_visible_only_when_there_are_transactions(&self, transactions: &gio::ListStore) {
+    fn set_transactions_list_visible_only_when_there_are_transactions(
+        &self,
+        transactions: &gio::ListStore,
+    ) {
         self.imp()
             .transactions_list
             .set_visible(transactions.n_items() > 0);
     }
 
-    fn set_categories_list_visible_only_when_there_are_categories(&self, categories: &gio::ListStore) {
+    fn set_categories_list_visible_only_when_there_are_categories(
+        &self,
+        categories: &gio::ListStore,
+    ) {
         self.imp()
             .categories_list
             .set_visible(categories.n_items() > 0);
@@ -172,22 +190,11 @@ impl Window {
     }
 
     fn setup_callbacks(&self) {
-        let on_entry_callback = |entry: &Entry, window: &Window| {
-            let txt = entry.text();
-            let (start, info) = match txt.split_once(" ") {
-                None => {
-                    window.show_toast("Please enter a valid command");
-                    return;
-                }
-                Some(v) => v,
-            };
-            window.execute_command(start, info);
-        };
-
-        self.imp().entry_command.connect_activate(
-            clone!(@weak self as window => move |entry| { on_entry_callback(entry, &window)}),
-        );
-
+        self.imp()
+            .back_button
+            .connect_clicked(clone!(@weak self as window => move |_| {
+                window.imp().leaflet.navigate(adw::NavigationDirection::Back);
+            }));
     }
 
     fn show_toast(&self, text: &str) {
@@ -196,129 +203,4 @@ impl Window {
         t.add_toast(&toast);
         t.show();
     }
-
-    fn execute_command(&self, start: &str, info: &str) {
-        let result = match start {
-            "nc" => self.new_category_command(info),
-            "sc" => self.select_category_command(info),
-            // "nt" => self.new_transaction_command(info),
-            _ => Err(CommandLineErrors::UnknownCommand),
-        };
-        let s = match result {
-            Ok(s) => s,
-            Err(CommandLineErrors::FailedToCreateCategory(e)) => e,
-            Err(_) => "Unknown Error".to_string(),
-        };
-        if s != "" {
-            self.show_toast(&s);
-        }
-    }
-
-    fn select_category_command(&self, txt: &str) -> Result<String, CommandLineErrors> {
-        let info = split_by_pattern(txt, " ");
-        if info.len() != 1 {
-            return Err(CommandLineErrors::IncompleteCommand);
-        }
-        let f = match info[0].parse::<i32>() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(CommandLineErrors::FailedToSelectCategory(format!(
-                    "Failed to parse int {}, {}",
-                    info[1],
-                    e.to_string()
-                )))
-            }
-        };
-        self.imp().current_category_id.replace(f);
-        self.setup_transactions();
-        Ok("".to_string())
-    }
-
-    fn new_category_command(&self, txt: &str) -> Result<String, CommandLineErrors> {
-        let (category_name, amount) = parse_new_category_command(&txt)?;
-        match {
-            let mut budgeting = self.imp().budgeting.borrow_mut();
-            budgeting.create_category_and_allocate(&category_name, amount)
-        } {
-            Ok(v) => {
-                {
-                    let mut budgeting = self.imp().budgeting.borrow_mut();
-                    let model = self.categories();
-                    let mut cm = budgeting.category_model(v.clone());
-                    let category_object = CategoryObject::new(&mut cm);
-                    model.append(&category_object);
-                    self.imp().categories.replace(Some(model));
-                }
-                self.setup_transactions();
-                self.update_budget_details();
-                return Ok("New Category added".to_string());
-            }
-            Err(BudgetingErrors::FailedToCreateCategory(err_str)) => {
-                Err(CommandLineErrors::FailedToCreateCategory(format!(
-                    "Failed to add category: {}",
-                    err_str
-                )))
-            }
-            Err(BudgetingErrors::CategoryAlreadyExists) => Err(
-                CommandLineErrors::FailedToCreateCategory("Category already exists".to_string()),
-            ),
-            _ => Err(CommandLineErrors::FailedToCreateCategory(
-                "Failed to create category due to unknown error".to_string(),
-            )),
-        }
-    }
-
-    fn new_transaction_command(&self, txt: &str) {
-        todo!()
-    }
-}
-
-#[derive(thiserror::Error, Debug, Clone)]
-pub enum CommandLineErrors {
-    #[error("Failed to parse amount, must be valid float")]
-    ParsingFloatError(String),
-    #[error("Incomplete Command")]
-    IncompleteCommand,
-    #[error("Unknown Command")]
-    UnknownCommand,
-    #[error("Failed to create category")]
-    FailedToCreateCategory(String),
-    #[error("Failed to select category")]
-    FailedToSelectCategory(String),
-}
-
-fn split_by_pattern(s: &str, p: &str) -> Vec<String> {
-    s.split(p).map(|v: &str| v.trim().to_string()).collect()
-}
-
-fn parse_new_category_command(info: &str) -> Result<(String, f64), CommandLineErrors> {
-    let info = split_by_pattern(info, "@");
-    if info.len() < 2 {
-        return Err(CommandLineErrors::IncompleteCommand);
-    }
-    let f = match info[1].parse::<f64>() {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(CommandLineErrors::FailedToCreateCategory(format!(
-                "Failed to parse float {}, {}",
-                info[1],
-                e.to_string()
-            )))
-        }
-    };
-    Ok((info[0].clone(), f))
-}
-
-impl From<ParseFloatError> for CommandLineErrors {
-    fn from(value: ParseFloatError) -> Self {
-        ParsingFloatError(value.to_string())
-    }
-}
-
-#[test]
-pub fn test_parsing_command() {
-    let cmd = "nc Bills @ 3000";
-    let (n, a): (String, f64) = parse_new_category_command(cmd).unwrap();
-    assert_eq!(n, "Bills");
-    assert_eq!(a, 3000.);
 }

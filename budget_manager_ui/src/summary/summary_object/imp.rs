@@ -10,11 +10,11 @@ use gtk::glib::once_cell::sync::Lazy;
 
 #[derive(Default)]
 pub struct SummaryData {
-    pub budget_details_available: String,
-    pub budget_unallocated: String,
-    pub budget_allocated: String,
-    pub budget_total_income: String,
-    pub budget_total_expense: String,
+    pub balance: String,
+    pub transfer_in: String,
+    pub transfer_out: String,
+    pub total_income: String,
+    pub total_expense: String,
 }
 
 // Object holding the state
@@ -35,11 +35,11 @@ impl ObjectImpl for SummaryObject {
     fn properties() -> &'static [ParamSpec] {
         static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
             vec![
-                ParamSpecString::builder("budget-details-available").build(),
-                ParamSpecString::builder("budget-unallocated").build(),
-                ParamSpecString::builder("budget-allocated").build(),
-                ParamSpecString::builder("budget-total-income").build(),
-                ParamSpecString::builder("budget-total-expense").build(),
+                ParamSpecString::builder("balance").build(),
+                ParamSpecString::builder("transfer-in").build(),
+                ParamSpecString::builder("transfer-out").build(),
+                ParamSpecString::builder("total-income").build(),
+                ParamSpecString::builder("total-expense").build(),
             ]
         });
         PROPERTIES.as_ref()
@@ -47,35 +47,35 @@ impl ObjectImpl for SummaryObject {
 
     fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
         match pspec.name() {
-            "budget-details-available" => {
+            "balance" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().budget_details_available = input_value;
+                self.data.borrow_mut().balance = input_value;
             },
-            "budget-unallocated" => {
+            "transfer-in" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().budget_unallocated = input_value;
+                self.data.borrow_mut().transfer_in = input_value;
             },
-            "budget-allocated" => {
+            "transfer-out" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().budget_allocated = input_value;
+                self.data.borrow_mut().transfer_out = input_value;
             },
-            "budget-total-income" => {
+            "total-income" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().budget_total_income = input_value;
+                self.data.borrow_mut().total_income = input_value;
             },
-            "budget-total-expense" => {
+            "total-expense" => {
                 let input_value = value
                     .get()
                     .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().budget_total_expense = input_value;
+                self.data.borrow_mut().total_expense = input_value;
             }
             _ => unimplemented!(),
         }
@@ -83,11 +83,11 @@ impl ObjectImpl for SummaryObject {
 
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
-            "budget-details-available" => self.data.borrow().budget_details_available.to_value(),
-            "budget-unallocated" => self.data.borrow().budget_unallocated.to_value(),
-            "budget-allocated" => self.data.borrow().budget_allocated.to_value(),
-            "budget-total-income" => self.data.borrow().budget_total_income.to_value(),
-            "budget-total-expense" => self.data.borrow().budget_total_expense.to_value(),
+            "balance" => self.data.borrow().balance.to_value(),
+            "transfer-in" => self.data.borrow().transfer_in.to_value(),
+            "transfer-out" => self.data.borrow().transfer_out.to_value(),
+            "total-income" => self.data.borrow().total_income.to_value(),
+            "total-expense" => self.data.borrow().total_expense.to_value(),
             _ => unimplemented!(),
         }
     }

@@ -1,8 +1,6 @@
 use crate::budgeting::budget_account::BudgetAccount;
-use crate::budgeting::category::{Category, CategoryModel};
+use crate::budgeting::category::{CategoryModel};
 use crate::budgeting::transaction::{Transaction, TransactionType};
-use diesel::SqliteConnection;
-use std::rc::Rc;
 
 pub struct TransactionAddToCategoryOps<'a> {
     budget: BudgetAccount,

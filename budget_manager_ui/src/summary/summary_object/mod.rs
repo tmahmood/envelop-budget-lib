@@ -5,24 +5,20 @@ use gtk::{glib};
 use gtk::glib::Object;
 use budget_manager::budgeting::Budgeting;
 use crate::fix_float;
+use crate::summary::summary_object::imp::SummaryData;
 
 glib::wrapper! {
     pub struct SummaryObject(ObjectSubclass<imp::SummaryObject>);
 }
 
 impl SummaryObject {
-    pub fn new(budget: &mut Budgeting) -> Self {
-        let budget_details_available =  fix_float(budget.actual_total_balance());
-        let budget_unallocated = fix_float(budget.uncategorized_balance());
-        let budget_allocated = fix_float(budget.total_allocated());
-        let budget_total_income = fix_float(budget.total_income());
-        let budget_total_expense = fix_float(-1. * budget.total_expense());
+    pub fn new(summary_data: SummaryData) -> Self {
         Object::builder()
-            .property("budget-details-available", budget_details_available)
-            .property("budget-unallocated", budget_unallocated)
-            .property("budget-allocated", budget_allocated)
-            .property("budget-total-income", budget_total_income)
-            .property("budget-total-expense", budget_total_expense)
+            .property("balance", summary_data.balance)
+            .property("transfer-in", summary_data.transfer_in)
+            .property("transfer-out", summary_data.transfer_out)
+            .property("total-income", summary_data.total_income)
+            .property("total-expense", summary_data.total_expense)
             .build()
     }
 

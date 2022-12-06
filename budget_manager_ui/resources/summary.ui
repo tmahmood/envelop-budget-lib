@@ -5,11 +5,8 @@
             <object class="GtkBinLayout"/>
         </property>
         <child>
-            <object class="GtkListBox">
-                <style>
-                    <class name="boxed-list"/>
-                </style>
-                <property name="selection-mode">none</property>
+            <object class="GtkBox">
+                <property name="homogeneous">True</property>
                 <child>
                     <object class="GtkBox">
                         <property name="margin-start">10</property>
@@ -18,25 +15,19 @@
                         <property name="margin-bottom">12</property>
                         <property name="homogeneous">True</property>
                         <property name="orientation">horizontal</property>
-                        <style>
-                            <class name="title-4"/>
-                        </style>
                         <child>
                             <object class="GtkBox">
                                 <property name="spacing">6</property>
                                 <property name="homogeneous">True</property>
                                 <property name="orientation">vertical</property>
                                 <child>
-                                    <object class="GtkLabel" id="budget_details_available">
+                                    <object class="GtkLabel" id="balance">
                                         <property name="label">0.0</property>
-                                        <style>
-                                            <class name="title-3"/>
-                                        </style>
                                     </object>
                                 </child>
                                 <child>
                                     <object class="GtkLabel">
-                                        <property name="label">AVAILABLE</property>
+                                        <property name="label">Balance</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -50,7 +41,7 @@
                                 <property name="homogeneous">True</property>
                                 <property name="orientation">vertical</property>
                                 <child>
-                                    <object class="GtkLabel" id="budget_allocated">
+                                    <object class="GtkLabel" id="transfer_in">
                                         <property name="label">0.0</property>
                                         <style>
                                             <class name="success"/>
@@ -59,7 +50,7 @@
                                 </child>
                                 <child>
                                     <object class="GtkLabel">
-                                        <property name="label">ALLOCATED</property>
+                                        <property name="label">Transfer In</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -73,7 +64,7 @@
                                 <property name="homogeneous">True</property>
                                 <property name="orientation">vertical</property>
                                 <child>
-                                    <object class="GtkLabel" id="budget_unallocated">
+                                    <object class="GtkLabel" id="transfer_out">
                                         <property name="label">0.0</property>
                                         <style>
                                             <class name="warning"/>
@@ -82,7 +73,7 @@
                                 </child>
                                 <child>
                                     <object class="GtkLabel">
-                                        <property name="label">UNALLOCATED</property>
+                                        <property name="label">Transfer Out</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -90,28 +81,13 @@
                                 </child>
                             </object>
                         </child>
-                    </object>
-
-                </child>
-                <child>
-                    <object class="GtkBox">
-                        <property name="margin-start">10</property>
-                        <property name="margin-end">10</property>
-                        <property name="margin-top">12</property>
-                        <property name="margin-bottom">12</property>
-                        <property name="hexpand">True</property>
-                        <property name="spacing">6</property>
-                        <property name="homogeneous">True</property>
-                        <style>
-                            <class name="title-4"/>
-                        </style>
                         <child>
                             <object class="GtkBox">
                                 <property name="spacing">6</property>
                                 <property name="homogeneous">True</property>
                                 <property name="orientation">vertical</property>
                                 <child>
-                                    <object class="GtkLabel" id="budget_total_income">
+                                    <object class="GtkLabel" id="total_income">
                                         <property name="label">0.0</property>
                                         <style>
                                             <class name="success"/>
@@ -120,7 +96,7 @@
                                 </child>
                                 <child>
                                     <object class="GtkLabel">
-                                        <property name="label">INCOME</property>
+                                        <property name="label">Income</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -134,7 +110,7 @@
                                 <property name="homogeneous">True</property>
                                 <property name="orientation">vertical</property>
                                 <child>
-                                    <object class="GtkLabel" id="budget_total_expense">
+                                    <object class="GtkLabel" id="total_expense">
                                         <property name="label">0.0</property>
                                         <style>
                                             <class name="error"/>
@@ -143,7 +119,7 @@
                                 </child>
                                 <child>
                                     <object class="GtkLabel">
-                                        <property name="label">EXPENSE</property>
+                                        <property name="label">Expense</property>
                                         <style>
                                             <class name="subtitle"/>
                                         </style>
@@ -152,7 +128,6 @@
                             </object>
                         </child>
                     </object>
-
                 </child>
             </object>
         </child>

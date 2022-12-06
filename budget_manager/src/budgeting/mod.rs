@@ -171,13 +171,25 @@ impl Budgeting {
         let b = BudgetAccountBuilder::new(self.conn(), "main").build();
         self.budget = Some(b.clone());
         // create the default category
-        self.category_builder(DEFAULT_CATEGORY).allocated(0.).done();
+        self.category_builder(DEFAULT_CATEGORY)
+            .allocated(0.)
+            .done()
+            .expect("Failed to save default category");
         self.new_transaction_to_category(DEFAULT_CATEGORY)
             .income(amount)
             .payee("Self")
             .note("Initial Balance")
             .done();
         Ok(b)
+    }
+
+    /// returns all the category except the unallocated category. To get the unallocated category
+    /// `uncategorized` method can be used
+    pub fn all_categories(&mut self) -> Vec<Category> {
+        imp_db!(categories);
+        Category::belonging_to(&self.current_budget())
+            .load::<Category>(self.conn())
+            .unwrap()
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category

@@ -15,19 +15,19 @@ use adw::glib::Type;
 pub struct SummaryTable {
 
     #[template_child]
-    pub budget_details_available: TemplateChild<Label>,
+    pub balance: TemplateChild<Label>,
 
     #[template_child]
-    pub budget_total_expense: TemplateChild<Label>,
+    pub transfer_in: TemplateChild<Label>,
 
     #[template_child]
-    pub budget_unallocated: TemplateChild<Label>,
+    pub transfer_out: TemplateChild<Label>,
 
     #[template_child]
-    pub budget_allocated: TemplateChild<Label>,
+    pub total_income: TemplateChild<Label>,
 
     #[template_child]
-    pub budget_total_income: TemplateChild<Label>,
+    pub total_expense: TemplateChild<Label>,
 
     // Vector holding the bindings to properties of `Budget Object`
     pub bindings: RefCell<Vec<Binding>>,

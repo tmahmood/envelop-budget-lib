@@ -1,11 +1,10 @@
 mod imp;
 
+use crate::summary::summary_object::SummaryObject;
 use adw::glib::{BindingFlags, ObjectExt};
 use adw::subclass::prelude::ObjectSubclassIsExt;
-use glib::{Object};
-use gtk::{glib};
-use crate::summary::summary_object::SummaryObject;
-
+use glib::Object;
+use gtk::glib;
 
 glib::wrapper! {
     pub struct SummaryTable(ObjectSubclass<imp::SummaryTable>)
@@ -25,37 +24,33 @@ impl SummaryTable {
     }
 
     pub fn bind_summary(self, summary_object: &SummaryObject) -> Self {
-        let budget_details_available = self.imp().budget_details_available.get();
-        let budget_unallocated = self.imp().budget_unallocated.get();
-        let budget_allocated = self.imp().budget_allocated.get();
-        let budget_total_expense = self.imp().budget_total_expense.get();
-        let budget_total_income = self.imp().budget_total_income.get();
+        let balance = self.imp().balance.get();
+        let transfer_in = self.imp().transfer_in.get();
+        let transfer_out = self.imp().transfer_out.get();
+        let total_expense = self.imp().total_expense.get();
+        let total_income = self.imp().total_income.get();
         summary_object
-            .bind_property(
-                "budget-details-available",
-                &budget_details_available,
-                "label",
-            )
+            .bind_property("balance", &balance, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("budget-unallocated", &budget_unallocated, "label")
+            .bind_property("transfer-in", &transfer_in, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("budget-allocated", &budget_allocated, "label")
+            .bind_property("transfer-out", &transfer_out, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("budget-total-income", &budget_total_income, "label")
+            .bind_property("total-income", &total_income, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("budget-total-expense", &budget_total_expense, "label")
+            .bind_property("total-expense", &total_expense, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 

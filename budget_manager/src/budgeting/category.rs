@@ -190,22 +190,29 @@ impl<'a> CategoryModel<'a> {
             .execute(self.conn)
     }
 
-    pub fn income(&mut self) -> f64 {
+    fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
         imp_db!(transactions);
         let result_option: QueryResult<Option<f64>> = Transaction::belonging_to(&self.category)
             .select(sum(amount))
-            .filter(transaction_type_id.eq(i32::from(TransactionType::Income)))
+            .filter(transaction_type_id.eq(i32::from(transfer_type)))
             .first::<Option<f64>>(self.conn);
         return_sum!(result_option)
     }
 
+    pub fn income(&mut self) -> f64 {
+        self.find_by_transfer_type(TransactionType::Income)
+    }
+
     pub fn expense(&mut self) -> f64 {
-        imp_db!(transactions);
-        let result_option = Transaction::belonging_to(&self.category)
-            .select(sum(amount))
-            .filter(transaction_type_id.eq(i32::from(TransactionType::Expense)))
-            .first::<Option<f64>>(self.conn);
-        return_sum!(result_option)
+        self.find_by_transfer_type(TransactionType::Expense)
+    }
+
+    pub fn transfer_in(&mut self) -> f64 {
+        self.find_by_transfer_type(TransactionType::TransferIn)
+    }
+
+    pub fn transfer_out(&mut self) -> f64 {
+        self.find_by_transfer_type(TransactionType::TransferOut)
     }
 
     pub fn allocated(&self) -> f64 {

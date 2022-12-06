@@ -4,11 +4,14 @@
         <property name="layout-manager">
             <object class="GtkBinLayout"/>
         </property>
-        <signal name="activate" handler="handle_row_activated" swapped="True"/>
+        <property name="activatable_widget">category_id_label</property>
         <child type="prefix">
-            <object class="GtkLabel" id="category_id_label">
+            <object class="GtkButton" id="category_id_label">
+                <property name="margin-top">12</property>
+                <property name="margin-bottom">12</property>
                 <style>
-                    <class name="subtitle"/>
+                    <class name="opaque" />
+                    <class name="circular" />
                 </style>
             </object>
         </child>

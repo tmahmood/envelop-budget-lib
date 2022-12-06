@@ -13,7 +13,7 @@ use crate::category::category_object::CategoryObject;
 glib::wrapper! {
     pub struct CategoryRow(ObjectSubclass<imp::CategoryRow>)
     @extends adw::ActionRow, gtk::Widget,
-    @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Orientable;
+    @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Orientable, gtk::Actionable;
 }
 
 impl Default for CategoryRow {
