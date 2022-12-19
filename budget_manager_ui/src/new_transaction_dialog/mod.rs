@@ -1,11 +1,11 @@
 mod imp;
 
+use crate::transaction::transaction_object::TransactionObject;
 use adw::glib::clone;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use glib::Object;
 use gtk::prelude::*;
 use gtk::{glib, Entry, ResponseType};
-use crate::transaction::transaction_object::TransactionObject;
 
 use crate::window::Window;
 
@@ -37,36 +37,26 @@ impl NewTransactionDialog {
         let entry_amount = self.imp().entry_amount.get();
         let toggle_income = self.imp().toggle_income.get();
 
-        let safe_entry = |dialog: &NewTransactionDialog,
-                          current_entry: &Entry,
-                          is_num: bool,
-                          e1: &Entry,
-                          e2: &Entry,
-                          e3: &Entry|
-         -> bool {
+        let safe_entry = |dialog: &NewTransactionDialog, e1: &Entry, e2: &Entry| -> bool {
             let dialog_button = dialog
                 .widget_for_response(ResponseType::Accept)
                 .expect("The dialog needs to have a widget for response type `Accept`.");
-
-            let f = |entry: &Entry| {
+            let f = |entry: &Entry| -> bool {
                 dialog_button.set_sensitive(false);
                 entry.add_css_class("error");
+                false
             };
-            if current_entry.text().is_empty() {
-                f(current_entry);
-                return false;
-            }
-            if is_num && current_entry.text().parse::<f64>().is_err() {
-                f(current_entry);
-                return false;
-            }
-            if e1.text().is_empty() || e2.text().is_empty() || e3.text().is_empty() {
-                dialog_button.set_sensitive(false);
+            let s = if e1.text().is_empty() {
+                f(e1)
+            } else if e2.text().is_empty() {
+                f(e2)
             } else {
-                dialog_button.set_sensitive(true);
-            }
-            current_entry.remove_css_class("error");
-            return true;
+                e1.remove_css_class("error");
+                e2.remove_css_class("error");
+                true
+            };
+            dialog_button.set_sensitive(s);
+            return s;
         };
 
         let on_dialog_action = move |window: &Window,
@@ -106,14 +96,11 @@ impl NewTransactionDialog {
             window.update_budget_details();
         };
         entry_payee.connect_changed(clone!(
-            @weak self as dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
-        entry_amount.connect_changed(clone!(
-            @weak self as dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
+            @weak self as dialog, @weak entry_payee, @weak entry_note =>
+            move |entry|safe_entry(&dialog, &entry_note, &entry_payee);));
         entry_note.connect_changed(clone!(
-            @weak self as dialog, @weak entry_payee, @weak entry_amount, @weak entry_note =>
-            move |entry|safe_entry(&dialog, entry, false, &entry_amount, &entry_note, &entry_payee);));
+            @weak self as dialog, @weak entry_payee, @weak entry_note =>
+            move |entry|safe_entry(&dialog, &entry_note, &entry_payee);));
 
         // Connect response to dialog
         self.connect_response(clone!(
@@ -125,8 +112,8 @@ impl NewTransactionDialog {
                 }
                 let payee = entry_payee.buffer().text();
                 let note = entry_note.buffer().text();
-                let amount = entry_amount.buffer().text().parse::<f64>().unwrap();
-                on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.state());
+                let amount = entry_amount.value();
+                on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.is_active());
             }
         ));
     }

@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
+    <object class="GtkAdjustment" id="amount_adjustment">
+        <property name="step-increment">1</property>
+        <property name="page-increment">10</property>
+    </object>
     <template class="NewTransactionDialog" parent="GtkDialog">
         <property name="title">New transaction</property>
         <property name="resizable">False</property>
@@ -21,8 +25,23 @@
             <action-widget response="accept">button_create</action-widget>
         </action-widgets>
         <child internal-child="content_area">
-            <object class="GtkBox" id="content_area">
-                <property name="orientation">vertical</property>
+            <object class="GtkListBox" id="content_area">
+                <style>
+                    <class name="boxed-list"/>
+                </style>
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="hexpand">True</property>
+                        <property name="margin-top">12</property>
+                        <property name="margin-start">12</property>
+                        <property name="margin-end">12</property>
+                        <property name="margin-bottom">12</property>
+                        <child>
+                            <object class="CalendarButton" id="date_selector_id" />
+                        </child>
+                    </object>
+                </child>
                 <child>
                     <object class="GtkEntry" id="entry_payee">
                         <property name="margin-top">12</property>
@@ -30,6 +49,7 @@
                         <property name="margin-start">12</property>
                         <property name="margin-end">12</property>
                         <property name="activates-default">True</property>
+                        <property name="placeholder_text">Payee</property>
                     </object>
                 </child>
                 <child>
@@ -39,25 +59,46 @@
                         <property name="margin-start">12</property>
                         <property name="margin-end">12</property>
                         <property name="activates-default">True</property>
+                        <property name="placeholder_text">Note</property>
                     </object>
                 </child>
                 <child>
                     <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="hexpand">True</property>
+                        <style>
+                            <class name="linked"/>
+                        </style>
                         <child>
-                            <object class="GtkEntry" id="entry_amount">
+                            <object class="GtkSpinButton" id="entry_amount">
+                                <property name="hexpand">True</property>
                                 <property name="margin-top">14</property>
                                 <property name="margin-bottom">14</property>
                                 <property name="margin-start">12</property>
-                                <property name="margin-end">12</property>
-                                <property name="activates-default">True</property>
+                                <property name="adjustment">amount_adjustment</property>
+                                <property name="numeric">true</property>
                             </object>
                         </child>
                         <child>
-                            <object class="GtkSwitch" id="toggle_income">
-                                <property name="margin-top">18</property>
-                                <property name="margin-bottom">18</property>
-                                <property name="margin-start">12</property>
+                            <object class="GtkToggleButton" id="toggle_income">
+                                <property name="margin-top">14</property>
+                                <property name="margin-bottom">14</property>
+                                <property name="label">Income</property>
+                                <style>
+                                    <class name="success"/>
+                                </style>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkToggleButton" id="toggle_expense">
+                                <property name="margin-top">14</property>
+                                <property name="margin-bottom">14</property>
                                 <property name="margin-end">12</property>
+                                <property name="label">Expense</property>
+                                <property name="group">toggle_income</property>
+                                <style>
+                                    <class name="error"/>
+                                </style>
                             </object>
                         </child>
                     </object>

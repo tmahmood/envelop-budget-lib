@@ -32,12 +32,6 @@ pub struct Window {
     pub toast_overlay: TemplateChild<ToastOverlay>,
 
     #[template_child]
-    pub command_input: TemplateChild<ToggleButton>,
-
-    #[template_child]
-    pub prompt_popover: TemplateChild<Popover>,
-
-    #[template_child]
     pub leaflet: TemplateChild<Leaflet>,
 
     #[template_child]

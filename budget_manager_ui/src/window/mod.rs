@@ -117,10 +117,12 @@ impl Window {
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
-        let total_expense = fix_float(category.expense());
+        let expense = category.expense();
+        let _transfer_out =  category.transfer_out();
+        let total_expense = fix_float(expense * expense.signum());
         let total_income = fix_float(category.income());
         let transfer_in = fix_float(category.transfer_in());
-        let transfer_out = fix_float(category.transfer_out());
+        let transfer_out = fix_float(_transfer_out * _transfer_out.signum());
         let balance = fix_float(category.balance());
 
         let summary_table = self.imp().summary_table.borrow().get();

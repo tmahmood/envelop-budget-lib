@@ -74,22 +74,6 @@
                                         <property name="action-name">win.new-transaction</property>
                                     </object>
                                 </child>
-                                <child type="end">
-                                    <object class="GtkToggleButton" id="command_input">
-                                        <property name="icon-name">utilities-terminal</property>
-                                        <property name="tooltip-text" translatable="yes">Command Prompt
-                                        </property>
-                                    </object>
-                                </child>
-                                <child>
-                                    <object class="GtkPopover" id="prompt_popover">
-                                        <property name="child">
-                                            <object class="GtkLabel">
-                                                <property name="label">Hello from a custom child widget!</property>
-                                            </object>
-                                        </property>
-                                    </object>
-                                </child>
                             </object>
                         </child>
                         <child>
@@ -109,11 +93,7 @@
                                                     <class name="boxed-list"/>
                                                 </style>
                                                 <child>
-                                                    <object class="SummaryTable" id="summary_table">
-                                                        <style>
-                                                            <class name="boxed-list"/>
-                                                        </style>
-                                                    </object>
+                                                    <object class="SummaryTable" id="summary_table" />
                                                 </child>
                                             </object>
                                         </child>

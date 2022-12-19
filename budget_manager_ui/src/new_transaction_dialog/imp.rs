@@ -1,11 +1,13 @@
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CompositeTemplate, Entry, Switch};
+use gtk::{glib, CompositeTemplate, Entry, Switch, ToggleButton, SpinButton};
 use std::cell::RefCell;
 
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
+use crate::calender_button::CalendarButton;
+use crate::date_selector::DateSelector;
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
@@ -18,10 +20,14 @@ pub struct NewTransactionDialog {
     pub entry_note: TemplateChild<Entry>,
 
     #[template_child]
-    pub entry_amount: TemplateChild<Entry>,
+    pub entry_amount: TemplateChild<SpinButton>,
 
     #[template_child]
-    pub toggle_income: TemplateChild<Switch>,
+    pub toggle_income: TemplateChild<ToggleButton>,
+
+    #[template_child]
+    pub date_selector_id: TemplateChild<CalendarButton>,
+
     // Vector holding the bindings to properties of `TransactionObject`
     pub bindings: RefCell<Vec<Binding>>,
 }
