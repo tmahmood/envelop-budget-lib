@@ -5,7 +5,7 @@ use adw::glib::clone;
 use adw::subclass::prelude::ObjectSubclassIsExt;
 use glib::Object;
 use gtk::prelude::*;
-use gtk::{glib, Entry, ResponseType};
+use gtk::{glib, Button, Editable, Entry, ResponseType, SpinButton};
 
 use crate::window::Window;
 
@@ -36,28 +36,29 @@ impl NewTransactionDialog {
         let entry_note = self.imp().entry_note.get();
         let entry_amount = self.imp().entry_amount.get();
         let toggle_income = self.imp().toggle_income.get();
+        let date = self.imp().transaction_date.imp().date();
 
-        let safe_entry = |dialog: &NewTransactionDialog, e1: &Entry, e2: &Entry| -> bool {
-            let dialog_button = dialog
-                .widget_for_response(ResponseType::Accept)
-                .expect("The dialog needs to have a widget for response type `Accept`.");
-            let f = |entry: &Entry| -> bool {
-                dialog_button.set_sensitive(false);
-                entry.add_css_class("error");
-                false
+        let validate_input =
+            |dialog: &NewTransactionDialog, e1: &Entry, e2: &Entry, a: &SpinButton| -> bool {
+                let dialog_button = dialog
+                    .widget_for_response(ResponseType::Accept)
+                    .expect("The dialog needs to have a widget for response type `Accept`.");
+                // let's assume all is good
+                let mut no_error = true;
+                if e1.text().is_empty() {
+                    e1.add_css_class("error");
+                    no_error = false;
+                }
+                if e2.text().is_empty() {
+                    e2.add_css_class("error");
+                    no_error = false;
+                }
+                if a.value().is_nan() || a.value() == 0. {
+                    a.add_css_class("error");
+                    no_error = false;
+                }
+                no_error
             };
-            let s = if e1.text().is_empty() {
-                f(e1)
-            } else if e2.text().is_empty() {
-                f(e2)
-            } else {
-                e1.remove_css_class("error");
-                e2.remove_css_class("error");
-                true
-            };
-            dialog_button.set_sensitive(s);
-            return s;
-        };
 
         let on_dialog_action = move |window: &Window,
                                      dialog: &NewTransactionDialog,
@@ -95,25 +96,38 @@ impl NewTransactionDialog {
             }
             window.update_budget_details();
         };
-        entry_payee.connect_changed(clone!(
-            @weak self as dialog, @weak entry_payee, @weak entry_note =>
-            move |entry|safe_entry(&dialog, &entry_note, &entry_payee);));
-        entry_note.connect_changed(clone!(
-            @weak self as dialog, @weak entry_payee, @weak entry_note =>
-            move |entry|safe_entry(&dialog, &entry_note, &entry_payee);));
+
+        entry_payee.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.text().is_empty() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
+
+        entry_note.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.text().is_empty() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
+
+        entry_amount.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.value().is_nan() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
 
         // Connect response to dialog
         self.connect_response(clone!(
             @weak window, @weak entry_payee => move |dialog, response| {
-                // Return if the user chose a response different than `Accept`
                 if response != ResponseType::Accept {
                     dialog.destroy();
                     return;
                 }
-                let payee = entry_payee.buffer().text();
-                let note = entry_note.buffer().text();
-                let amount = entry_amount.value();
-                on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.is_active());
+                if validate_input(dialog, &entry_payee, &entry_note, &entry_amount) {
+                    let payee = entry_payee.buffer().text();
+                    let note = entry_note.buffer().text();
+                    let amount = entry_amount.value();
+                    on_dialog_action(&window, dialog, response, payee, note, amount, toggle_income.is_active());
+                }
             }
         ));
     }

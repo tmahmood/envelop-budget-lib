@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use adw::glib::{Date, DateTime};
 use adw::subclass::preferences_row::PreferencesRowImpl;
 use adw::subclass::prelude::ActionRowImpl;
 use gtk::prelude::*;
@@ -15,12 +17,20 @@ pub struct CalendarButton {
 
     #[template_child]
     calendar_button_label: TemplateChild<gtk::Label>,
+
+    #[template_child]
+    id_calendar: TemplateChild<gtk::Calendar>,
 }
 
 impl CalendarButton {
-    fn set_label(&self, label: String) {
+    pub fn set_label(&self, label: String) {
         self.calendar_button_label.set_label(&label);
     }
+
+    pub fn date(&self) -> DateTime {
+        self.id_calendar.date()
+    }
+
 }
 
 #[glib::object_subclass]

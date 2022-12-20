@@ -7,7 +7,6 @@
       <file compressed="true" preprocess="xml-stripblanks">budget_balance_entry.ui</file>
       <file compressed="true" preprocess="xml-stripblanks">category_row.ui</file>
       <file compressed="true" preprocess="xml-stripblanks">summary.ui</file>
-      <file compressed="true" preprocess="xml-stripblanks">date_selector.ui</file>
       <file compressed="true" preprocess="xml-stripblanks">calendar_button.ui</file>
   </gresource>
 </gresources>
