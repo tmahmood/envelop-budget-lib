@@ -201,63 +201,75 @@ pub struct NewTransaction<'a> {
     pub transaction_type_id: i32,
 }
 
+
 pub struct TransactionBuilder<'a> {
-    income: bool,
-    category_id: Option<i32>,
-    note: Option<String>,
-    payee: Option<String>,
-    amount: f64,
+    amount: Option<f64>,
+    payee: Option<&'a str>,
+    note: Option<&'a str>,
+    income: Option<bool>,
     date_created: Option<NaiveDateTime>,
     transaction_type: TransactionType,
-    conn: &'a mut SqliteConnection,
+    category_id: i32,
+    conn: &'a mut SqliteConnection
 }
 
 impl<'a> TransactionBuilder<'a> {
-    fn new(
-        conn: &'a mut SqliteConnection,
-        amount: f64,
-        income: bool,
-        transaction_type: TransactionType,
-    ) -> Self {
-        Self {
-            income,
-            category_id: None,
-            note: None,
+    pub fn new(conn: &'a mut SqliteConnection, category_id: i32) -> Self {
+        TransactionBuilder {
+            amount: None,
             payee: None,
-            amount,
+            note: None,
+            income: None,
             date_created: None,
-            transaction_type,
-            conn,
+            transaction_type: TransactionType::Expense,
+            category_id,
+            conn
         }
     }
-    pub(crate) fn new_income(conn: &'a mut SqliteConnection, amount: f64) -> Self {
-        TransactionBuilder::new(conn, amount, true, TransactionType::Income)
+
+    fn reset(&mut self) {
+        self.amount = None;
+        self.payee = None;
+        self.note = None;
+        self.income = None;
+        self.date_created = None;
     }
 
-    pub(crate) fn new_expense(conn: &'a mut SqliteConnection, amount: f64) -> Self {
-        TransactionBuilder::new(conn, amount, false, TransactionType::Expense)
-    }
-
-    pub(crate) fn new_transfer_in(conn: &'a mut SqliteConnection, amount: f64) -> Self {
-        TransactionBuilder::new(conn, amount, true, TransactionType::TransferIn)
-    }
-
-    pub(crate) fn new_transfer_out(conn: &'a mut SqliteConnection, amount: f64) -> Self {
-        TransactionBuilder::new(conn, amount, false, TransactionType::TransferOut)
-    }
-
-    pub(crate) fn category(&mut self, category_id: i32) -> &mut Self {
-        self.category_id = Some(category_id);
+    pub fn transfer_from(&mut self, amount: f64) -> &mut Self {
+        self.amount = Some(amount);
+        self.income = Some(false);
+        self.transaction_type = TransactionType::TransferOut;
         self
     }
 
-    pub fn note(&mut self, note: &str) -> &mut Self {
-        self.note = Some(note.to_string());
+    pub fn transfer_to(&mut self, amount: f64) -> &mut Self {
+        self.amount = Some(amount);
+        self.income = Some(true);
+        self.transaction_type = TransactionType::TransferIn;
         self
     }
 
-    pub fn payee(&mut self, payee: &str) -> &mut Self {
-        self.payee = Some(payee.to_string());
+    pub fn expense(&mut self, amount: f64) -> &mut Self {
+        self.amount = Some(amount);
+        self.income = Some(false);
+        self.transaction_type = TransactionType::Expense;
+        self
+    }
+
+    pub fn income(&mut self, amount: f64) -> &mut Self {
+        self.amount = Some(amount);
+        self.income = Some(true);
+        self.transaction_type = TransactionType::Income;
+        self
+    }
+
+    pub fn payee(&mut self, payee: &'a str) -> &mut Self {
+        self.payee = Some(payee);
+        self
+    }
+
+    pub fn note(&mut self, note: &'a str) -> &mut Self {
+        self.note = Some(note);
         self
     }
 
@@ -267,20 +279,21 @@ impl<'a> TransactionBuilder<'a> {
     }
 
     pub fn done(&mut self) -> Transaction {
-        if self.category_id.is_none() || self.note.is_none() || self.payee.is_none() {
+        if self.note.is_none() || self.payee.is_none() || self.amount.is_none() {
             panic!("Not all field set")
         }
+
         let signed_amount = match self.transaction_type {
-            TransactionType::Income | TransactionType::TransferIn => self.amount,
-            TransactionType::Expense | TransactionType::TransferOut => -1. * self.amount,
+            TransactionType::Income | TransactionType::TransferIn => self.amount.unwrap(),
+            TransactionType::Expense | TransactionType::TransferOut => -1. * self.amount.unwrap(),
         };
         let new_transaction = NewTransaction {
             note: self.note.as_ref().unwrap(),
             payee: self.payee.as_ref().unwrap(),
             date_created: self.date_created.unwrap_or_else(current_date),
-            income: self.income,
+            income: self.income.unwrap(),
             amount: signed_amount,
-            category_id: self.category_id.unwrap(),
+            category_id: self.category_id,
             transaction_type_id: i32::from(self.transaction_type.clone()),
         };
         imp_db!(transactions);
@@ -293,6 +306,26 @@ impl<'a> TransactionBuilder<'a> {
             .limit(1)
             .load::<Transaction>(self.conn)
             .unwrap();
+        self.reset();
         results.first().unwrap().clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::budgeting::Budgeting;
+    use crate::test_helpers::new_budget_using_budgeting;
+    use crate::test_helpers::DbDropper;
+
+    #[test]
+    fn transaction_op_struct_handles_full_transaction_details() {
+        let mut dd = DbDropper::new();
+        let mut blib = Budgeting::new();
+        new_budget_using_budgeting(&mut blib);
+        let mut d = blib.new_transaction_to_category("Travel");
+        d.income(1000.).payee("Some").note("Other").done();
+        d.expense(2000.).payee("Some").note("Other").done();
+        assert_eq!(blib.category_balance("Travel"), 2000.);
     }
 }

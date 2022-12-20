@@ -13,11 +13,7 @@ use std::borrow::BorrowMut;
 use std::collections::btree_map::BTreeMap;
 use std::hash::Hash;
 
-use crate::budgeting::transaction::{Transaction, TransactionBuilder};
-use crate::budgeting::category::{Category, CategoryBuilder};
-use crate::budgeting::budgeting_errors::BudgetingErrors;
-use crate::transaction_op::TransactionAddToCategoryOps;
-use crate::{current_date, establish_connection, DEFAULT_CATEGORY};
+use crate::{current_date};
 
 /// Budget is used to store all the transaction categories and store their details in a file
 #[derive(Default, Serialize, Deserialize, Queryable, Debug, Identifiable, Clone)]

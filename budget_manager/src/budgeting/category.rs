@@ -1,6 +1,6 @@
 use crate::budgeting::budget_account::BudgetAccount;
 use crate::budgeting::category;
-use crate::budgeting::transaction::{Transaction, TransactionBuilder, TransactionType};
+use crate::budgeting::transaction::{Transaction, TransactionType};
 use crate::schema::categories;
 use diesel::dsl::sum;
 use diesel::prelude::*;
@@ -148,20 +148,6 @@ impl<'a> CategoryModel<'a> {
             .unwrap()
     }
 
-    pub(crate) fn new_transaction(
-        &mut self,
-        amount: f64,
-        transaction_type: &TransactionType,
-    ) -> TransactionBuilder {
-        let mut tb = match transaction_type {
-            TransactionType::Income => TransactionBuilder::new_income(self.conn, amount),
-            TransactionType::Expense => TransactionBuilder::new_expense(self.conn, amount),
-            TransactionType::TransferIn => TransactionBuilder::new_transfer_in(self.conn, amount),
-            TransactionType::TransferOut => TransactionBuilder::new_transfer_out(self.conn, amount),
-        };
-        tb.category(self.category.id);
-        tb
-    }
 
     pub(crate) fn delete(conn: &mut SqliteConnection, id: i32) -> usize {
         imp_db!(categories);
@@ -228,49 +214,3 @@ impl<'a> CategoryModel<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::budgeting::transaction::TransactionBuilder;
-    use crate::establish_connection;
-    use crate::test_helpers::DbDropper;
-    use crate::transaction_op::TransactionAddToCategoryOps;
-
-    #[test]
-    fn new_transaction_category_with_transactions() {
-        let d = DbDropper::new();
-        let mut conn = &mut d.conn();
-        let category = CategoryBuilder::new(conn, 1, "Testing")
-            .allocated(6000.)
-            .done().unwrap();
-        let mut cm = CategoryModel::new(conn, category);
-        cm.new_transaction(3000., &TransactionType::Expense)
-            .payee("Payee 1")
-            .note("Test Note Payee 1")
-            .done();
-        cm.new_transaction(300., &TransactionType::Expense)
-            .payee("Payee 3")
-            .note("Test Note Payee 3")
-            .done();
-        cm.new_transaction(500., &TransactionType::Income)
-            .payee("Payee 4")
-            .note("Test Note Payee 4")
-            .done();
-        cm.new_transaction(600., &TransactionType::Income)
-            .payee("Payee 2")
-            .note("Test Note Payee 2")
-            .done();
-        let c = cm.transactions();
-        println!("{:#?}", c);
-        assert_eq!(cm.expense(), -3300.);
-        assert_eq!(cm.income(), 1100.);
-        // we have not funded this category, so only transactions are available
-        assert_eq!(cm.balance(), 1100. - 3300.);
-        cm.new_transaction(1000., &TransactionType::Expense)
-            .payee("Payee 5")
-            .note("Test Note Payee 5")
-            .done();
-        assert_eq!(cm.expense(), -4300.);
-        CategoryModel::delete(&mut conn, 1);
-    }
-}

@@ -45,7 +45,6 @@ pub mod budgeting;
 pub mod schema;
 #[cfg(test)]
 mod test_helpers;
-pub mod transaction_op;
 
 /// This should be used whenever date time is needed
 pub fn current_date() -> NaiveDateTime {
