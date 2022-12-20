@@ -1,9 +1,12 @@
 mod imp;
 
+use crate::calender_button::CalendarButton;
 use crate::transaction::transaction_object::TransactionObject;
-use adw::glib::clone;
+use adw::glib::{clone, closure_local};
 use adw::subclass::prelude::ObjectSubclassIsExt;
+use chrono::{NaiveDate, NaiveDateTime};
 use glib::Object;
+use gtk::glib::DateTime;
 use gtk::prelude::*;
 use gtk::{glib, Button, Editable, Entry, ResponseType, SpinButton};
 
@@ -36,7 +39,7 @@ impl NewTransactionDialog {
         let entry_note = self.imp().entry_note.get();
         let entry_amount = self.imp().entry_amount.get();
         let toggle_income = self.imp().toggle_income.get();
-        let date = self.imp().transaction_date.imp().date();
+        let entry_date = self.imp().transaction_date.get();
 
         entry_payee.connect_changed(
             clone!(@weak dialog_button => move|entry| if !entry.text().is_empty() {
@@ -56,6 +59,15 @@ impl NewTransactionDialog {
                 dialog_button.set_sensitive(true) }),
         );
 
+        entry_date.connect_closure(
+            "calendar-button-date-changed",
+            false,
+            closure_local!(move |_b: CalendarButton, date: DateTime| {
+                _b.remove_css_class("error");
+                dialog_button.set_sensitive(true)
+            }),
+        );
+
         // Connect response to dialog
         self.connect_response(clone!(
             @weak window, @weak entry_payee => move |dialog, response| {
@@ -72,18 +84,27 @@ impl NewTransactionDialog {
                     entry_payee.add_css_class("error");
                     no_error = false;
                 }
+
                 if entry_note.text().is_empty() {
                     entry_note.add_css_class("error");
                     no_error = false;
                 }
+
                 if entry_amount.value().is_nan() || entry_amount.value() == 0. {
                     entry_amount.add_css_class("error");
                     no_error = false;
                 }
+
+                if entry_date.imp().date().is_none() {
+                    entry_date.add_css_class("error");
+                    no_error = false;
+                }
+
                 if no_error {
                     let payee = entry_payee.buffer().text();
                     let note = entry_note.buffer().text();
                     let amount = entry_amount.value();
+                    let date = entry_date.imp().date().unwrap();
                     dialog.destroy();
                     {
                         let current_id = window.current_category_id();
@@ -92,22 +113,17 @@ impl NewTransactionDialog {
                             let mut cm = budgeting.get_category_model_by_id(current_id).unwrap();
                             cm.category().name()
                         };
-                        let transaction = if toggle_income.is_active() {
-                            budgeting
-                                .new_transaction_to_category(&category_name)
-                                .income(amount)
-                                .payee(&payee)
-                                .note(&note)
-
-                                .done()
+                        let mut tb = budgeting.new_transaction_to_category(&category_name);
+                        if toggle_income.is_active() {
+                            tb.income(amount);
                         } else {
-                            budgeting
-                                .new_transaction_to_category(&category_name)
-                                .expense(amount)
+                            tb.expense(amount);
+                        }
+                        let transaction = tb
                                 .payee(&payee)
+                                .date_created(date)
                                 .note(&note)
-                                .done()
-                        };
+                                .done();
                         let mut tm = budgeting.transaction_model(transaction.clone());
                         let transactions = window.transactions();
                         transactions.append(&TransactionObject::new(&mut tm));

@@ -1,6 +1,8 @@
 use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder, NewBudgetAccount};
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
-use crate::budgeting::transaction::{Transaction, TransactionBuilder, TransactionModel, TransactionType};
+use crate::budgeting::transaction::{
+    Transaction, TransactionBuilder, TransactionModel, TransactionType,
+};
 use crate::{establish_connection, DEFAULT_CATEGORY};
 use budgeting_errors::BudgetingErrors;
 use budgeting_errors::BudgetingErrors::{
@@ -45,13 +47,10 @@ impl Default for Budgeting {
 impl Budgeting {
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
-    pub fn new_transaction_to_category<'b>(
-        &'b mut self,
-        category: &'b str,
-    ) -> TransactionBuilder {
+    pub fn new_transaction_to_category<'b>(&'b mut self, category: &'b str) -> TransactionBuilder {
         let b = self.current_budget();
-        let mut cm = self.find_category(category).unwrap();
-        TransactionBuilder::new(self.conn(), cm.id())
+        let mut _category = self.find_category(category).unwrap();
+        TransactionBuilder::new(self.conn(), _category.id())
     }
 
     /// Transfers fund from one category to another

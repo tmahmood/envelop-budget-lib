@@ -1,10 +1,13 @@
-use std::cell::RefCell;
+use adw::glib::once_cell::sync::Lazy;
+use adw::glib::subclass::Signal;
 use adw::glib::{Date, DateTime};
 use adw::subclass::preferences_row::PreferencesRowImpl;
 use adw::subclass::prelude::ActionRowImpl;
+use chrono::{NaiveDate, NaiveDateTime, ParseResult};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, CompositeTemplate};
+use std::cell::RefCell;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(file = "../../resources/calendar_button.ui")]
@@ -20,17 +23,25 @@ pub struct CalendarButton {
 
     #[template_child]
     id_calendar: TemplateChild<gtk::Calendar>,
+
+    #[template_child]
+    placeholder: TemplateChild<gtk::Label>,
 }
 
 impl CalendarButton {
-    pub fn set_label(&self, label: String) {
-        self.calendar_button_label.set_label(&label);
+    pub fn set_placeholder(&self, text: &str) {
+        self.placeholder.set_label(text);
     }
 
-    pub fn date(&self) -> DateTime {
-        self.id_calendar.date()
+    pub fn date(&self) -> Option<NaiveDateTime> {
+        if self.calendar_button_label.text().is_empty() {
+            return None;
+        }
+        let _d = self.id_calendar.date();
+        NaiveDate::from_ymd_opt(_d.year(), _d.month() as u32, _d.day_of_month() as u32)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
     }
-
 }
 
 #[glib::object_subclass]
@@ -61,9 +72,13 @@ impl CalendarButton {
     #[template_callback]
     fn day_selected(&self, calendar: &gtk::Calendar) {
         let date = calendar.date().format("%Y-%m-%d").unwrap();
-        self.calendar_button_label.set_label(&date);
+        self.calendar_button_label.set_text(&date);
+        self.placeholder.hide();
         self.popover.hide();
+        let obj = self.obj();
+        obj.emit_by_name::<()>("calendar-button-date-changed", &[&calendar.date()]);
     }
+
     #[template_callback(name = "popover_closed")]
     fn unset_toggle(&self) {
         self.toggle.set_active(false);
@@ -71,6 +86,15 @@ impl CalendarButton {
 }
 
 impl ObjectImpl for CalendarButton {
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            vec![Signal::builder("calendar-button-date-changed")
+                .param_types([DateTime::static_type()])
+                .build()]
+        });
+        SIGNALS.as_ref()
+    }
+
     // Needed for direct subclasses of GtkWidget;
     // Here you need to unparent all direct children
     // of your template.

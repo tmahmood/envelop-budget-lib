@@ -11,8 +11,11 @@
                 <property name="child">
                     <object class="GtkBox">
                         <child>
-                            <object class="GtkLabel" id="calendar_button_label">
-                                <property name="label">Select date</property>
+                            <object class="GtkLabel" id="calendar_button_label" />
+                        </child>
+                        <child>
+                            <object class="GtkLabel" id="placeholder">
+                                <property name="label">Select Date</property>
                             </object>
                         </child>
                         <child>
