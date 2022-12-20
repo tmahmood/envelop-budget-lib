@@ -1,12 +1,16 @@
+use adw::glib::{clone, closure_local};
 use glib::Binding;
+use gtk::glib::DateTime;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CompositeTemplate, Entry, Switch, ToggleButton, SpinButton, Adjustment};
+use gtk::{
+    glib, Adjustment, CompositeTemplate, Entry, ResponseType, SpinButton, Switch, ToggleButton,
+};
 use std::cell::RefCell;
 
+use crate::calender_button::CalendarButton;
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
-use crate::calender_button::CalendarButton;
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
@@ -17,7 +21,6 @@ pub struct NewTransactionDialog {
 
     #[template_child]
     pub entry_note: TemplateChild<Entry>,
-
 
     #[template_child]
     pub toggle_income: TemplateChild<ToggleButton>,
@@ -56,11 +59,46 @@ impl ObjectSubclass for NewTransactionDialog {
 impl ObjectImpl for NewTransactionDialog {
     fn signals() -> &'static [Signal] {
         static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
-            vec![Signal::builder("budget-updated")
-                .param_types([i32::static_type()])
-                .build()]
+            // get calls after
+            vec![Signal::builder("valid-transaction-entered").build()]
         });
         SIGNALS.as_ref()
+    }
+
+    fn constructed(&self) {
+        self.parent_constructed();
+
+        let dialog_button = self.obj()
+            .widget_for_response(ResponseType::Accept)
+            .expect("The dialog needs to have a widget for response type `Accept`.");
+        dialog_button.set_sensitive(false);
+
+        self.entry_payee.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.text().is_empty() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
+
+        self.entry_note.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.text().is_empty() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
+
+        self.entry_amount.connect_changed(
+            clone!(@weak dialog_button => move|entry| if !entry.value().is_nan() {
+                entry.remove_css_class("error");
+                dialog_button.set_sensitive(true) }),
+        );
+
+        self.transaction_date.connect_closure(
+            "calendar-button-date-changed",
+            false,
+            closure_local!(move |_b: CalendarButton, date: DateTime| {
+                _b.remove_css_class("error");
+                dialog_button.set_sensitive(true)
+            }),
+        );
     }
 }
 
@@ -70,4 +108,38 @@ impl WidgetImpl for NewTransactionDialog {}
 // Trait shared by all Windows
 impl WindowImpl for NewTransactionDialog {}
 
-impl DialogImpl for NewTransactionDialog {}
+impl DialogImpl for NewTransactionDialog {
+    fn response(&self, response: ResponseType) {
+        if response != ResponseType::Accept {
+            self.obj().destroy();
+            return;
+        }
+        // let's assume all is good
+        let mut no_error = true;
+        if self.entry_payee.text().is_empty() {
+            self.entry_payee.add_css_class("error");
+            no_error = false;
+        }
+
+        if self.entry_note.text().is_empty() {
+            self.entry_note.add_css_class("error");
+            no_error = false;
+        }
+
+        if self.entry_amount.value().is_nan() || self.entry_amount.value() == 0. {
+            self.entry_amount.add_css_class("error");
+            no_error = false;
+        }
+
+        if self.transaction_date.imp().date().is_none() {
+            self.transaction_date.add_css_class("error");
+            no_error = false;
+        }
+
+        if no_error {
+            self.obj().emit_by_name::<()>("valid-transaction-entered", &[]);
+        }
+    }
+}
+
+impl NewTransactionDialog {}

@@ -187,7 +187,7 @@ impl Window {
     fn new_transaction(&self) {
         // Create new Dialog
         let dialog = NewTransactionDialog::new(self);
-        dialog.do_things(&self);
+        dialog.setup_dialog_action(&self);
         dialog.present();
     }
 
