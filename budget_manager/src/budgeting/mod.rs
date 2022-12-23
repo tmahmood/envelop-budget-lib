@@ -63,23 +63,44 @@ impl Budgeting {
         self.new_transaction_to_category(src)
             .transfer_from(amount)
             .payee(dest)
-            .note(&format!("Transferred to {}", dest))
+            .note(&format!("Outgoing {}", dest))
             .done();
         self.new_transaction_to_category(dest)
             .transfer_to(amount)
-            .payee(dest)
-            .note(&format!("Received from {}", src))
+            .payee(src)
+            .note(&format!("Incoming {}", src))
             .done();
         Ok(())
     }
 
+    pub fn fund_from_unallocated(
+        &mut self,
+        category: &str
+    ) -> Result<(), BudgetingErrors> {
+        let mut c = self.get_category_model(category);
+        let balance = c.balance();
+        let allocated = c.allocated();
+        if balance >= allocated {
+            return Err(BudgetingErrors::AlreadyFunded)
+        }
+        let unallocated_balance = self.uncategorized_balance();
+        let to_fund = if balance > 0. {
+            allocated - balance
+        } else {
+            balance.abs() + allocated
+        };
+        println!("{} {} {}", unallocated_balance, to_fund, unallocated_balance - to_fund);
+        if unallocated_balance - to_fund < 0. {
+            return Err(BudgetingErrors::OverFundingError);
+        }
+        self.transfer_fund(DEFAULT_CATEGORY, category, to_fund)
+    }
     // creates a new category and allocates the budget
     pub fn create_category_and_allocate(
         &mut self,
         category: &str,
         allocate: f64,
     ) -> Result<Category, BudgetingErrors> {
-        self.current_budget();
         let t = self.category_builder(category).allocated(allocate).done()?;
         self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
         Ok(t)
@@ -426,5 +447,38 @@ pub mod tests {
         let bills_available = blib.category_balance("Bills");
         assert_eq!(bills_available, 0.0);
         assert_eq!(blib.actual_total_balance(), TRAVEL + UNUSED);
+    }
+
+    #[test]
+    pub fn funding_category_over_funded() {
+        let mut dd = DbDropper::new();
+        let mut blib = Budgeting::new();
+        new_budget_using_budgeting(&mut blib);
+        blib.new_transaction_to_category("Bills")
+            .expense(9000.)
+            .payee("someone")
+            .note("test")
+            .done();
+        assert_eq!(
+            blib.fund_from_unallocated("Bills"),
+            Err(BudgetingErrors::OverFundingError)
+        );
+    }
+
+    #[test]
+    pub fn funding_category_good() {
+        let mut dd = DbDropper::new();
+        let mut blib = Budgeting::new();
+        new_budget_using_budgeting(&mut blib);
+        blib.new_transaction_to_category("Bills")
+            .expense(600.)
+            .payee("someone")
+            .note("test")
+            .done();
+        assert_eq!(
+            blib.fund_from_unallocated("Bills"),
+            Ok(())
+        );
+        assert_eq!(blib.category_balance("Bills"), BILLS);
     }
 }

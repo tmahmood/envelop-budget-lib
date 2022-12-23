@@ -41,29 +41,14 @@
                                 <property name="min-content-height">360</property>
                                 <property name="max-content-width">300</property>
                                 <property name="min-content-width">280</property>
-                                <property name="margin-top">12</property>
-                                <property name="margin-bottom">12</property>
-                                <property name="margin-start">12</property>
-                                <property name="margin-end">12</property>
                                 <property name="child">
                                     <object class="GtkListBox" id="categories_list">
-                                        <style>
-                                            <class name="boxed-list"/>
-                                        </style>
                                         <signal name="row_activated" handler="handle_row_activated"
                                                 swapped="True"/>
                                     </object>
                                 </property>
                             </object>
                         </child>
-                    </object>
-                </child>
-                <child>
-                    <object class="AdwLeafletPage">
-                        <property name="navigatable">False</property>
-                        <property name="child">
-                            <object class="GtkSeparator"/>
-                        </property>
                     </object>
                 </child>
                 <child>
@@ -99,14 +84,21 @@
                                         <property name="action-name">win.new-transaction</property>
                                     </object>
                                 </child>
+                                <child type="end">
+                                    <object class="GtkButton" id="fund_overspent">
+                                        <property name="label" translatable="yes">Fund</property>
+                                        <property name="action-name">win.fund-transfer</property>
+                                        <property name="sensitive">False</property>
+                                    </object>
+                                </child>
                             </object>
                         </child>
                         <child>
                             <object class="AdwToastOverlay" id="toast_overlay">
                                 <property name="child">
                                     <object class="GtkScrolledWindow">
-                                        <property name="margin-top">12</property>
-                                        <property name="margin-bottom">12</property>
+                                        <property name="margin-top">4</property>
+                                        <property name="margin-bottom">4</property>
                                         <property name="margin-start">12</property>
                                         <property name="margin-end">12</property>
                                         <property name="vexpand">True</property>

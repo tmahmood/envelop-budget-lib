@@ -119,29 +119,32 @@ impl Window {
 
         let b = category.balance();
         let balance = fix_float(b);
+        let category_name = category.category().name();
 
         let heading = self.imp().transaction_title.get();
-        heading.set_title(&category.category().name());
+        heading.set_title(&category_name);
+
+        if category_name == DEFAULT_CATEGORY || b >= category.allocated() {
+            self.imp().fund_overspent.set_sensitive(false);
+        } else {
+            self.imp().fund_overspent.set_sensitive(true);
+        }
+
         let summary_table = self.imp().summary_table.borrow().get();
-
-
         if b < 0. {
-            heading.add_css_class("error") ;
+            heading.add_css_class("error");
             summary_table.add_css_class("error");
         } else {
             heading.remove_css_class("error");
             summary_table.remove_css_class("error");
         }
-
         self.imp().summary_table.imp().toggle.set_label(&balance);
-
         let summary_data = SummaryData {
             transfer_in,
             transfer_out,
             total_income,
             total_expense,
         };
-
         let summary_object = SummaryObject::new(summary_data);
         summary_table.bind_summary(&summary_object);
     }
@@ -191,6 +194,28 @@ impl Window {
             window.new_transaction();
         }));
         self.add_action(&action_new_list);
+
+        let action_fund_transfer = gio::SimpleAction::new("fund-transfer", None);
+        action_fund_transfer.connect_activate(clone!(@weak self as window => move |_, _| {
+            window.fund_transfer();
+        }));
+        self.add_action(&action_fund_transfer);
+    }
+
+    fn fund_transfer(&self) {
+        let mut budget_account = self.imp().budgeting.borrow_mut();
+        let cid = self.imp().current_category_id.borrow();
+        let mut category = budget_account
+            .get_category_model_by_id(cid.deref().clone())
+            .unwrap();
+        let category_name = category.category().name();
+
+        match budget_account.fund_from_unallocated(&category_name) {
+            Ok(_) => {}
+            Err(BudgetingErrors::AlreadyFunded) => self.show_toast("No need to fund"),
+            Err(BudgetingErrors::OverFundingError) => self.show_toast("You do not have enough money to fund this category"),
+            Err(e) => { self.show_toast(&format!("Something went wrong. {:?}", e)) }
+        }
     }
 
     fn new_transaction(&self) {
@@ -242,7 +267,6 @@ impl Window {
                 window.imp().leaflet.navigate(adw::NavigationDirection::Back);
             }));
 
-
         self.transactions().connect_items_changed(
             clone!(@weak self as window => move |transactions, _, _, _| {
                 window.set_transactions_list_visible_only_when_there_are_transactions(transactions);
@@ -254,8 +278,14 @@ impl Window {
                 window.set_categories_list_visible_only_when_there_are_categories(categories);
             }),
         );
-    }
 
+        self.imp()
+            .fund_overspent
+            .connect_clicked(clone!(@weak self as window => move |_| {
+                // will try to allocate money to this category
+                window.imp().leaflet.navigate(adw::NavigationDirection::Back);
+            }));
+    }
 
     fn show_toast(&self, text: &str) {
         let t = self.imp().toast_overlay.get();

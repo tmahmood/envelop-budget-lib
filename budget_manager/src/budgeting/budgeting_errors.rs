@@ -1,4 +1,4 @@
-#[derive(thiserror::Error, Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq)]
 pub enum BudgetingErrors {
     #[error("Error transferring fund from one category to other")]
     FundTransferError,
@@ -14,4 +14,8 @@ pub enum BudgetingErrors {
     FailedToCreateBudget(String),
     #[error("Failed to create category")]
     FailedToCreateCategory(String),
+    #[error("Trying to fund more than what is actually available")]
+    OverFundingError,
+    #[error("Already Funded")]
+    AlreadyFunded,
 }
