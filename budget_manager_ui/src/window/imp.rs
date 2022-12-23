@@ -6,7 +6,7 @@ use adw::subclass::prelude::*;
 use gtk::glib::subclass::InitializingObject;
 use gtk::{glib, Entry, Popover, ToggleButton};
 
-use adw::{ActionRow, ExpanderRow, Leaflet, NavigationDirection, ToastOverlay};
+use adw::{ActionRow, ExpanderRow, Flap, Leaflet, NavigationDirection, ToastOverlay};
 use gtk::{gio, Button, Label, ListBox};
 use std::cell::RefCell;
 
@@ -38,10 +38,15 @@ pub struct Window {
     pub back_button: TemplateChild<Button>,
 
     #[template_child]
+    pub display_budget_accounts: TemplateChild<ToggleButton>,
+
+    #[template_child]
     pub transaction_title: TemplateChild<adw::WindowTitle>,
 
     #[template_child]
     pub summary_table: TemplateChild<SummaryTable>,
+
+
 
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub categories: RefCell<Option<gio::ListStore>>,
@@ -61,7 +66,6 @@ impl Window {
         self.obj().setup_transactions();
         self.obj().update_budget_details();
         self.leaflet.navigate(NavigationDirection::Forward);
-
     }
 }
 
@@ -96,8 +100,6 @@ impl ObjectImpl for Window {
         obj.setup_transactions();
         obj.setup_actions();
         obj.setup_callbacks();
-
-        // Connect to "clicked" signal of `button`
     }
 }
 

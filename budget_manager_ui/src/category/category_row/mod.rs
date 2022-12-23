@@ -1,14 +1,12 @@
 mod imp;
 
+use crate::category::category_object::CategoryObject;
 use adw::prelude::ActionRowExt;
 use glib::{BindingFlags, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, Label, pango};
+use gtk::{glib, pango, Label};
 use pango::{AttrList, Attribute};
-use crate::category::category_object::CategoryObject;
-
-
 
 glib::wrapper! {
     pub struct CategoryRow(ObjectSubclass<imp::CategoryRow>)
@@ -28,21 +26,18 @@ impl CategoryRow {
     }
 
     pub fn bind_objects(self, category_object: &CategoryObject) -> Self {
-        let name_label = self.imp().name_label.get();
         let id_label = self.imp().category_id_label.get();
         let allocated_label = self.imp().allocated_label.get();
-
         category_object
             .bind_property("id", &id_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
-
         category_object
             .bind_property("name", &self, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         category_object
-            .bind_property("allocated", &allocated_label, "label")
+            .bind_property("allocated", &self, "subtitle")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         self

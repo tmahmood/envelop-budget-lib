@@ -16,11 +16,7 @@ pub struct CategoryRow {
     #[template_child]
     pub category_id_label: TemplateChild<Button>,
     #[template_child]
-    pub name_label: TemplateChild<Label>,
-    #[template_child]
     pub allocated_label: TemplateChild<Label>,
-    // Vector holding the bindings to properties of `TodoObject`
-    pub bindings: RefCell<Vec<Binding>>,
 }
 
 // The central trait for subclassing a GObject

@@ -27,9 +27,9 @@
                                     <object class="GtkImage" id="transaction_type"/>
                                 </child>
                                 <child>
-                                    <object class="GtkLabel" id="transaction_id_label">
+                                    <object class="GtkButton" id="transaction_id_btn">
                                         <style>
-                                            <class name="subtitle"/>
+                                            <class name="circular"/>
                                         </style>
                                     </object>
                                 </child>

@@ -1,7 +1,7 @@
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CompositeTemplate, Label, Image};
+use gtk::{glib, CompositeTemplate, Label, Image, Button};
 use std::cell::RefCell;
 
 
@@ -25,7 +25,7 @@ pub struct TransactionRow {
     pub category_name_label: TemplateChild<Label>,
 
     #[template_child]
-    pub transaction_id_label: TemplateChild<Label>,
+    pub transaction_id_btn: TemplateChild<Button>,
 
     #[template_child]
     pub transaction_type: TemplateChild<Image>,

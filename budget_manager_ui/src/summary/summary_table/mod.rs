@@ -24,33 +24,28 @@ impl SummaryTable {
     }
 
     pub fn bind_summary(self, summary_object: &SummaryObject) -> Self {
-        let balance = self.imp().balance.get();
         let transfer_in = self.imp().transfer_in.get();
         let transfer_out = self.imp().transfer_out.get();
         let total_expense = self.imp().total_expense.get();
         let total_income = self.imp().total_income.get();
+
         summary_object
-            .bind_property("balance", &balance, "label")
+            .bind_property("transfer-in", &transfer_in, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("transfer-in", &transfer_in, "label")
+            .bind_property("transfer-out", &transfer_out, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("transfer-out", &transfer_out, "label")
+            .bind_property("total-income", &total_income, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 
         summary_object
-            .bind_property("total-income", &total_income, "label")
-            .flags(BindingFlags::SYNC_CREATE)
-            .build();
-
-        summary_object
-            .bind_property("total-expense", &total_expense, "label")
+            .bind_property("total-expense", &total_expense, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
 

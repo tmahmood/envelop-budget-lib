@@ -1,38 +1,30 @@
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, CompositeTemplate, Entry, Switch, Label};
-use std::cell::RefCell;
-use std::ptr::NonNull;
-
-use adw::glib::once_cell::sync::Lazy;
-use adw::glib::subclass::{Signal, TypeData};
-use adw::glib::Type;
+use gtk::{glib, CompositeTemplate, ListBox};
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
 #[template(file = "../../../resources/summary.ui")]
 pub struct SummaryTable {
+    #[template_child]
+    pub transfer_in: TemplateChild<adw::ActionRow>,
 
     #[template_child]
-    pub balance: TemplateChild<Label>,
+    pub transfer_out: TemplateChild<adw::ActionRow>,
 
     #[template_child]
-    pub transfer_in: TemplateChild<Label>,
+    pub total_income: TemplateChild<adw::ActionRow>,
 
     #[template_child]
-    pub transfer_out: TemplateChild<Label>,
+    pub total_expense: TemplateChild<adw::ActionRow>,
 
     #[template_child]
-    pub total_income: TemplateChild<Label>,
+    pub toggle: TemplateChild<gtk::ToggleButton>,
 
     #[template_child]
-    pub total_expense: TemplateChild<Label>,
-
-    // Vector holding the bindings to properties of `Budget Object`
-    pub bindings: RefCell<Vec<Binding>>,
+    pub popover: TemplateChild<gtk::Popover>,
 }
-
 
 // The central trait for subclassing a GObject
 #[glib::object_subclass]
@@ -44,6 +36,7 @@ impl ObjectSubclass for SummaryTable {
 
     fn class_init(klass: &mut Self::Class) {
         Self::bind_template(klass);
+        Self::bind_template_callbacks(klass);
     }
 
     fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
@@ -59,3 +52,18 @@ impl WidgetImpl for SummaryTable {}
 
 // Trait shared by all boxes
 impl BoxImpl for SummaryTable {}
+
+#[gtk::template_callbacks]
+impl SummaryTable {
+    #[template_callback]
+    fn toggle_toggled(&self, toggle: &gtk::ToggleButton) {
+        if toggle.is_active() {
+            self.popover.popup();
+        }
+    }
+
+    #[template_callback(name = "popover_closed")]
+    fn unset_toggle(&self) {
+        self.toggle.set_active(false);
+    }
+}

@@ -20,9 +20,12 @@ use adw::prelude::*;
 use adw::Application;
 use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
 use budget_manager::budgeting::Budgeting;
+use budget_manager::DEFAULT_CATEGORY;
 use gtk::glib::{clone, Object};
 use gtk::subclass::prelude::*;
-use gtk::{gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, ToggleButton};
+use gtk::{
+    gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
+};
 use rand::distributions::uniform::SampleBorrow;
 
 glib::wrapper! {
@@ -39,10 +42,9 @@ impl Window {
 
     pub fn setup_budget_account(&self) {
         self.imp().current_category_id.replace(1);
-        let mut c = budget_manager::establish_connection();
-        budget_manager::run_migrations(&mut c).expect("Failed to initialize database");
+        let mut conn = budget_manager::establish_connection();
+        budget_manager::run_migrations(&mut conn).expect("Failed to initialize database");
         let mut budgeting = Budgeting::new();
-        // TODO: I should allow the user to create and load saved budgets
         budgeting
             .set_current_budget("main")
             .or_else(|_| budgeting.new_budget("main", 0.))
@@ -57,14 +59,13 @@ impl Window {
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
-        self.imp()
-            .transaction_title
-            .set_title(&category.category().name());
+
         category.transactions().iter().for_each(|transaction| {
             let mut tm = budgeting.transaction_model(transaction.clone());
             let transaction_object = TransactionObject::new(&mut tm);
             model.append(&transaction_object);
         });
+
         self.imp().transactions.replace(Some(model));
         let selection_model = NoSelection::new(Some(&self.transactions()));
         self.imp().transactions_list.bind_model(
@@ -77,11 +78,6 @@ impl Window {
         );
         let transactions = self.transactions();
         self.set_transactions_list_visible_only_when_there_are_transactions(&transactions);
-        self.transactions().connect_items_changed(
-            clone!(@weak self as window => move |transactions, _, _, _| {
-                window.set_transactions_list_visible_only_when_there_are_transactions(transactions);
-            }),
-        );
     }
 
     fn setup_categories(&self) {
@@ -92,6 +88,7 @@ impl Window {
             let category_object = CategoryObject::new(&mut cm);
             model.append(&category_object);
         });
+
         self.imp().categories.replace(Some(model));
         let selection_model = NoSelection::new(Some(&self.categories()));
         self.imp().categories_list.bind_model(
@@ -104,11 +101,6 @@ impl Window {
         );
         let categories = self.categories();
         self.set_categories_list_visible_only_when_there_are_categories(&categories);
-        self.categories().connect_items_changed(
-            clone!(@weak self as window => move |categories, _, _, _| {
-                window.set_categories_list_visible_only_when_there_are_categories(categories);
-            }),
-        );
     }
 
     pub(crate) fn update_budget_details(&self) {
@@ -117,22 +109,39 @@ impl Window {
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
+
         let expense = category.expense();
-        let _transfer_out =  category.transfer_out();
+        let _transfer_out = category.transfer_out();
         let total_expense = fix_float(expense * expense.signum());
         let total_income = fix_float(category.income());
         let transfer_in = fix_float(category.transfer_in());
         let transfer_out = fix_float(_transfer_out * _transfer_out.signum());
-        let balance = fix_float(category.balance());
 
+        let b = category.balance();
+        let balance = fix_float(b);
+
+        let heading = self.imp().transaction_title.get();
+        heading.set_title(&category.category().name());
         let summary_table = self.imp().summary_table.borrow().get();
+
+
+        if b < 0. {
+            heading.add_css_class("error") ;
+            summary_table.add_css_class("error");
+        } else {
+            heading.remove_css_class("error");
+            summary_table.remove_css_class("error");
+        }
+
+        self.imp().summary_table.imp().toggle.set_label(&balance);
+
         let summary_data = SummaryData {
-            balance,
             transfer_in,
             transfer_out,
             total_income,
             total_expense,
         };
+
         let summary_object = SummaryObject::new(summary_data);
         summary_table.bind_summary(&summary_object);
     }
@@ -186,8 +195,43 @@ impl Window {
 
     fn new_transaction(&self) {
         // Create new Dialog
-        let dialog = NewTransactionDialog::new(self);
-        dialog.setup_dialog_action(&self);
+        let mut b = self.imp().budgeting.borrow_mut();
+        let categories = b.categories();
+        let dialog = NewTransactionDialog::new(self, categories);
+        dialog.connect_closure(
+            "valid-transaction-entered",
+            false,
+            closure_local!(@watch self as window => move |dialog: NewTransactionDialog| {
+                let entry_payee = dialog.imp().entry_payee.get();
+                let entry_note = dialog.imp().entry_note.get();
+                let entry_amount = dialog.imp().entry_amount.get();
+                let toggle_income = dialog.imp().toggle_income.get();
+                let entry_date = dialog.imp().transaction_date.get();
+                let category_name = dialog.imp().category_selected.borrow();
+
+                let payee = entry_payee.text();
+                let note = entry_note.text();
+                let amount = entry_amount.value();
+                let date = entry_date.imp().date().unwrap();
+
+                dialog.destroy();
+                let category_id = {
+                    let mut budgeting = window.imp().budgeting.borrow_mut();
+                    let mut tb = budgeting.new_transaction_to_category(&category_name);
+                    if toggle_income.is_active() {
+                        tb.income(amount);
+                    } else {
+                        tb.expense(amount);
+                    }
+                    let t = tb.payee(&payee).date_created(date).note(&note).done();
+                    t.category_id()
+                };
+                if window.current_category_id() == category_id {
+                    window.update_budget_details();
+                    window.setup_transactions();
+                }
+            }),
+        );
         dialog.present();
     }
 
@@ -197,7 +241,21 @@ impl Window {
             .connect_clicked(clone!(@weak self as window => move |_| {
                 window.imp().leaflet.navigate(adw::NavigationDirection::Back);
             }));
+
+
+        self.transactions().connect_items_changed(
+            clone!(@weak self as window => move |transactions, _, _, _| {
+                window.set_transactions_list_visible_only_when_there_are_transactions(transactions);
+            }),
+        );
+
+        self.categories().connect_items_changed(
+            clone!(@weak self as window => move |categories, _, _, _| {
+                window.set_categories_list_visible_only_when_there_are_categories(categories);
+            }),
+        );
     }
+
 
     fn show_toast(&self, text: &str) {
         let t = self.imp().toast_overlay.get();

@@ -10,12 +10,22 @@
                 <child>
                     <object class="GtkBox">
                         <property name="orientation">vertical</property>
-                        <property name="spacing">12</property>
                         <child>
                             <object class="AdwHeaderBar">
+                                <property name="title-widget">
+                                    <object class="AdwWindowTitle">
+                                        <property name="title">Categories</property>
+                                    </object>
+                                </property>
                                 <binding name="show-end-title-buttons">
                                     <lookup name="folded">leaflet</lookup>
                                 </binding>
+                                <child type="start">
+                                    <object class="GtkToggleButton" id="display_budget_accounts">
+                                        <property name="icon-name">bank-symbolic</property>
+                                        <property name="tooltip-text" translatable="yes">Accounts</property>
+                                    </object>
+                                </child>
                                 <child type="start">
                                     <object class="GtkToggleButton">
                                         <property name="icon-name">list-add-symbolic</property>
@@ -31,9 +41,17 @@
                                 <property name="min-content-height">360</property>
                                 <property name="max-content-width">300</property>
                                 <property name="min-content-width">280</property>
+                                <property name="margin-top">12</property>
+                                <property name="margin-bottom">12</property>
+                                <property name="margin-start">12</property>
+                                <property name="margin-end">12</property>
                                 <property name="child">
                                     <object class="GtkListBox" id="categories_list">
-                                        <signal name="row_activated" handler="handle_row_activated" swapped="True"/>
+                                        <style>
+                                            <class name="boxed-list"/>
+                                        </style>
+                                        <signal name="row_activated" handler="handle_row_activated"
+                                                swapped="True"/>
                                     </object>
                                 </property>
                             </object>
@@ -55,7 +73,14 @@
                         <child>
                             <object class="AdwHeaderBar">
                                 <property name="title-widget">
-                                    <object class="AdwWindowTitle" id="transaction_title"/>
+                                    <object class="GtkBox">
+                                        <child>
+                                            <object class="AdwWindowTitle" id="transaction_title"/>
+                                        </child>
+                                        <child>
+                                            <object class="SummaryTable" id="summary_table"/>
+                                        </child>
+                                    </object>
                                 </property>
                                 <child type="start">
                                     <object class="GtkButton" id="back_button">
@@ -79,59 +104,26 @@
                         <child>
                             <object class="AdwToastOverlay" id="toast_overlay">
                                 <property name="child">
-                                    <object class="GtkBox">
-                                        <property name="orientation">vertical</property>
+                                    <object class="GtkScrolledWindow">
+                                        <property name="margin-top">12</property>
+                                        <property name="margin-bottom">12</property>
+                                        <property name="margin-start">12</property>
+                                        <property name="margin-end">12</property>
+                                        <property name="vexpand">True</property>
                                         <property name="hexpand">True</property>
-                                        <child>
-                                            <object class="GtkListBox">
-                                                <property name="margin-start">10</property>
-                                                <property name="margin-end">10</property>
-                                                <property name="margin-top">12</property>
-                                                <property name="margin-bottom">12</property>
-                                                <property name="hexpand">True</property>
+                                        <property name="child">
+                                            <object class="GtkListBox"
+                                                    id="transactions_list">
                                                 <style>
                                                     <class name="boxed-list"/>
                                                 </style>
-                                                <child>
-                                                    <object class="SummaryTable" id="summary_table" />
-                                                </child>
                                             </object>
-                                        </child>
-                                        <child>
-                                            <object class="GtkBox">
-                                                <property name="orientation">horizontal</property>
-                                                <property name="margin-top">12</property>
-                                                <property name="margin-bottom">12</property>
-                                                <property name="margin-start">12</property>
-                                                <property name="margin-end">12</property>
-                                                <property name="spacing">12</property>
-                                                <child>
-                                                    <object class="GtkBox">
-                                                        <property name="orientation">vertical</property>
-                                                        <child>
-                                                            <object class="GtkScrolledWindow">
-                                                                <property name="vexpand">True</property>
-                                                                <property name="hexpand">True</property>
-                                                                <property name="child">
-                                                                    <object class="GtkListBox"
-                                                                            id="transactions_list">
-                                                                        <style>
-                                                                            <class name="boxed-list"/>
-                                                                        </style>
-                                                                    </object>
-                                                                </property>
-                                                            </object>
-                                                        </child>
-                                                    </object>
-                                                </child>
-                                            </object>
-                                        </child>
+                                        </property>
                                     </object>
                                 </property>
                             </object>
                         </child>
                     </object>
-
                 </child>
             </object>
         </property>

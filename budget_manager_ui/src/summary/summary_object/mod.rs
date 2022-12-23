@@ -14,7 +14,6 @@ glib::wrapper! {
 impl SummaryObject {
     pub fn new(summary_data: SummaryData) -> Self {
         Object::builder()
-            .property("balance", summary_data.balance)
             .property("transfer-in", summary_data.transfer_in)
             .property("transfer-out", summary_data.transfer_out)
             .property("total-income", summary_data.total_income)

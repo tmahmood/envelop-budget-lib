@@ -79,6 +79,10 @@ impl BudgetAccount {
     pub fn id(&self) -> i32 {
         self.id
     }
+
+    pub fn filed_as(&self) -> String {
+        self.filed_as.to_string()
+    }
 }
 
 #[derive(Default)]

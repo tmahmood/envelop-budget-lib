@@ -1,16 +1,19 @@
-use adw::glib::{clone, closure_local};
+use adw::gio;
+use adw::glib::{clone, closure_local, GStr, GString, Type};
 use glib::Binding;
 use gtk::glib::DateTime;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{
-    glib, Adjustment, CompositeTemplate, Entry, ResponseType, SpinButton, Switch, ToggleButton,
+    glib, Adjustment, CompositeTemplate, DropDown, Entry, Label, ResponseType, SpinButton,
+    StringList, Switch, ToggleButton,
 };
 use std::cell::RefCell;
 
 use crate::calender_button::CalendarButton;
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
+use budget_manager::budgeting::category::Category;
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
@@ -34,8 +37,13 @@ pub struct NewTransactionDialog {
     #[template_child]
     pub amount_adjustment: TemplateChild<Adjustment>,
 
+    #[template_child]
+    category_list: TemplateChild<DropDown>,
+
     // Vector holding the bindings to properties of `TransactionObject`
-    pub bindings: RefCell<Vec<Binding>>,
+    categories: RefCell<Vec<Category>>,
+
+    pub category_selected: RefCell<String>,
 }
 
 // The central trait for subclassing a GObject
@@ -68,7 +76,8 @@ impl ObjectImpl for NewTransactionDialog {
     fn constructed(&self) {
         self.parent_constructed();
 
-        let dialog_button = self.obj()
+        let dialog_button = self
+            .obj()
             .widget_for_response(ResponseType::Accept)
             .expect("The dialog needs to have a widget for response type `Accept`.");
         dialog_button.set_sensitive(false);
@@ -99,6 +108,14 @@ impl ObjectImpl for NewTransactionDialog {
                 dialog_button.set_sensitive(true)
             }),
         );
+
+        self.category_list
+            .connect_selected_notify(clone!(@weak self as dialog => move |d| {
+                let selected = d.selected();
+                let c = dialog.categories.borrow();
+                let name = c.get(selected as usize).unwrap().name().to_string();
+                dialog.category_selected.replace(name);
+            }));
     }
 }
 
@@ -137,9 +154,25 @@ impl DialogImpl for NewTransactionDialog {
         }
 
         if no_error {
-            self.obj().emit_by_name::<()>("valid-transaction-entered", &[]);
+            self.obj()
+                .emit_by_name::<()>("valid-transaction-entered", &[]);
         }
     }
 }
 
-impl NewTransactionDialog {}
+impl NewTransactionDialog {
+    pub(crate) fn set_categories(&self, categories: Vec<Category>, category_id: i32) {
+        let mut selected_category_id = 0;
+        for (ii, category) in categories.iter().enumerate() {
+            if category.id() == category_id {
+                selected_category_id = ii as u32;
+                break;
+            }
+        };
+        self.categories.replace(categories);
+        let store = self.categories.borrow();
+        let c: StringList = store.iter().map(|v| v.name()).collect();
+        self.category_list.get().set_model(Some(&c));
+        self.category_list.set_selected(selected_category_id);
+    }
+}

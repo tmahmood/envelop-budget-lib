@@ -53,6 +53,10 @@ impl Category {
         self.name.to_owned()
     }
 
+    pub fn name_c(&self) -> &str {
+        self.name.as_str()
+    }
+
     pub fn allocated(&self) -> f64 {
         self.allocated
     }

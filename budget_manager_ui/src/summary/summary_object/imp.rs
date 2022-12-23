@@ -10,7 +10,6 @@ use gtk::glib::once_cell::sync::Lazy;
 
 #[derive(Default)]
 pub struct SummaryData {
-    pub balance: String,
     pub transfer_in: String,
     pub transfer_out: String,
     pub total_income: String,
@@ -35,7 +34,6 @@ impl ObjectImpl for SummaryObject {
     fn properties() -> &'static [ParamSpec] {
         static PROPERTIES: Lazy<Vec<ParamSpec>> = Lazy::new(|| {
             vec![
-                ParamSpecString::builder("balance").build(),
                 ParamSpecString::builder("transfer-in").build(),
                 ParamSpecString::builder("transfer-out").build(),
                 ParamSpecString::builder("total-income").build(),
@@ -47,12 +45,6 @@ impl ObjectImpl for SummaryObject {
 
     fn set_property(&self, _id: usize, value: &Value, pspec: &ParamSpec) {
         match pspec.name() {
-            "balance" => {
-                let input_value = value
-                    .get()
-                    .expect("The value needs to be of type `String`.");
-                self.data.borrow_mut().balance = input_value;
-            },
             "transfer-in" => {
                 let input_value = value
                     .get()
@@ -83,7 +75,6 @@ impl ObjectImpl for SummaryObject {
 
     fn property(&self, _id: usize, pspec: &ParamSpec) -> Value {
         match pspec.name() {
-            "balance" => self.data.borrow().balance.to_value(),
             "transfer-in" => self.data.borrow().transfer_in.to_value(),
             "transfer-out" => self.data.borrow().transfer_out.to_value(),
             "total-income" => self.data.borrow().total_income.to_value(),
