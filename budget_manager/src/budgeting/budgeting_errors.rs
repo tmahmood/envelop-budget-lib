@@ -8,14 +8,20 @@ pub enum BudgetingErrors {
     CategoryAlreadyExists,
     #[error("Category update failed")]
     CategoryUpdateFailed,
-    #[error("Budget Account not found")]
+    #[error("Budget Account not found: {0}")]
     BudgetAccountNotFound(String),
-    #[error("Failed to create budget")]
+    #[error("Failed to create budget: {0}")]
     FailedToCreateBudget(String),
-    #[error("Failed to create category")]
+    #[error("Failed to create category: {0}")]
     FailedToCreateCategory(String),
     #[error("Trying to fund more than what is actually available")]
     OverFundingError,
     #[error("Already Funded")]
     AlreadyFunded,
+    #[error("Not all transaction fields are provided")]
+    MissingTransactionFields,
+    #[error("Unspecified Database Error")]
+    UnspecifiedDatabaseError,
+    #[error("Transaction not found")]
+    TransactionNotFound,
 }

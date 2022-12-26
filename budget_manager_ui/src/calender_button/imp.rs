@@ -42,6 +42,13 @@ impl CalendarButton {
             .unwrap()
             .and_hms_opt(0, 0, 0)
     }
+
+    pub fn date_o(&self) -> Option<DateTime> {
+        if self.calendar_button_label.text().is_empty() {
+            return None;
+        }
+        Some(self.id_calendar.date())
+    }
 }
 
 #[glib::object_subclass]

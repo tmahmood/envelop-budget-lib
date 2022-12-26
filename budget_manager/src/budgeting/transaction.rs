@@ -1,3 +1,4 @@
+use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
 use crate::{current_date, establish_connection, parse_date};
@@ -20,7 +21,7 @@ impl From<i32> for TransactionType {
             2 => TransactionType::Income,
             3 => TransactionType::TransferIn,
             4 => TransactionType::TransferOut,
-            _ => panic!("Invalid transaction type")
+            _ => panic!("Invalid transaction type"),
         }
     }
 }
@@ -201,7 +202,6 @@ pub struct NewTransaction<'a> {
     pub transaction_type_id: i32,
 }
 
-
 pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
     payee: Option<&'a str>,
@@ -210,7 +210,7 @@ pub struct TransactionBuilder<'a> {
     date_created: Option<NaiveDateTime>,
     transaction_type: TransactionType,
     category_id: i32,
-    conn: &'a mut SqliteConnection
+    conn: &'a mut SqliteConnection,
 }
 
 impl<'a> TransactionBuilder<'a> {
@@ -223,7 +223,7 @@ impl<'a> TransactionBuilder<'a> {
             date_created: None,
             transaction_type: TransactionType::Expense,
             category_id,
-            conn
+            conn,
         }
     }
 
@@ -278,11 +278,10 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
-    pub fn done(&mut self) -> Transaction {
+    pub fn done(&mut self) -> Result<Transaction, BudgetingErrors> {
         if self.note.is_none() || self.payee.is_none() || self.amount.is_none() {
-            panic!("Not all field set")
+            return Err(BudgetingErrors::MissingTransactionFields);
         }
-
         let signed_amount = match self.transaction_type {
             TransactionType::Income | TransactionType::TransferIn => self.amount.unwrap(),
             TransactionType::Expense | TransactionType::TransferOut => -1. * self.amount.unwrap(),
@@ -299,15 +298,19 @@ impl<'a> TransactionBuilder<'a> {
         imp_db!(transactions);
         diesel::insert_into(transactions::table)
             .values(&new_transaction)
-            .execute(self.conn)
-            .expect("Error saving new transaction");
+            .execute(self.conn)?;
         let results = transactions
             .order(id.desc())
             .limit(1)
             .load::<Transaction>(self.conn)
-            .unwrap();
+            .or_else(|e| Err(BudgetingErrors::TransactionNotFound));
+        let k: Option<Transaction> = results?.first().cloned();
         self.reset();
-        results.first().unwrap().clone()
+        if k.is_some() {
+            Ok(k.unwrap())
+        } else {
+            Err(BudgetingErrors::TransactionNotFound)
+        }
     }
 }
 
@@ -324,8 +327,8 @@ mod tests {
         let mut blib = Budgeting::new();
         new_budget_using_budgeting(&mut blib);
         let mut d = blib.new_transaction_to_category("Travel");
-        d.income(1000.).payee("Some").note("Other").done();
-        d.expense(2000.).payee("Some").note("Other").done();
+        d.income(1000.).payee("Some").note("Other").done().unwrap();
+        d.expense(2000.).payee("Some").note("Other").done().unwrap();
         assert_eq!(blib.category_balance("Travel"), 2000.);
     }
 }

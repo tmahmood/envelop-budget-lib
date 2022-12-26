@@ -41,6 +41,9 @@ pub struct Window {
     pub display_budget_accounts: TemplateChild<ToggleButton>,
 
     #[template_child]
+    pub tgl_btn_new_category: TemplateChild<ToggleButton>,
+
+    #[template_child]
     pub transaction_title: TemplateChild<adw::WindowTitle>,
 
     #[template_child]

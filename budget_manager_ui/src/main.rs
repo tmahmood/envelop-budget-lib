@@ -10,6 +10,7 @@ mod new_transaction_dialog;
 mod transaction;
 mod window;
 mod calender_button;
+mod new_category_dialog;
 
 const APP_ID: &str = "org.tmn.budgetTracker";
 

@@ -63,12 +63,12 @@ impl Budgeting {
         self.new_transaction_to_category(src)
             .transfer_from(amount)
             .payee(dest)
-            .note(&format!("Outgoing {}", dest))
+            .note(&format!("Funded {}", dest))
             .done();
         self.new_transaction_to_category(dest)
             .transfer_to(amount)
             .payee(src)
-            .note(&format!("Incoming {}", src))
+            .note(&format!("Received {}", src))
             .done();
         Ok(())
     }
@@ -89,7 +89,6 @@ impl Budgeting {
         } else {
             balance.abs() + allocated
         };
-        println!("{} {} {}", unallocated_balance, to_fund, unallocated_balance - to_fund);
         if unallocated_balance - to_fund < 0. {
             return Err(BudgetingErrors::OverFundingError);
         }

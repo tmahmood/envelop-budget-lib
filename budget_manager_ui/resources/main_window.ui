@@ -27,7 +27,7 @@
                                     </object>
                                 </child>
                                 <child type="start">
-                                    <object class="GtkToggleButton">
+                                    <object class="GtkToggleButton" id="tgl_btn_new_category">
                                         <property name="icon-name">list-add-symbolic</property>
                                         <property name="tooltip-text" translatable="yes">New Category</property>
                                         <property name="action-name">win.new-category</property>

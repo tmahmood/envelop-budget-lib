@@ -1,14 +1,14 @@
 use crate::budgeting::budget_account::BudgetAccount;
+use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category;
 use crate::budgeting::transaction::{Transaction, TransactionType};
 use crate::schema::categories;
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::result::DatabaseErrorKind;
+use diesel::result::Error::DatabaseError;
 use diesel::sqlite::Sqlite;
-use gtk::cairo::Error;
 use serde::{Deserialize, Serialize};
-use crate::budgeting::budgeting_errors::BudgetingErrors;
 
 #[derive(
     Debug,
@@ -109,28 +109,28 @@ impl<'a> CategoryBuilder<'a> {
         imp_db!(categories);
         let r = diesel::insert_into(categories::table)
             .values(&t)
-            .execute(self.conn);
-        match r {
-            Ok(_) => {}
-            Err(diesel::result::Error::DatabaseError(e, ..)) => {
-                return match e {
-                    DatabaseErrorKind::UniqueViolation => Err(BudgetingErrors::CategoryAlreadyExists),
-                    _ => Err(BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())),
-                }
-            },
-            Err(_) => {
-                return Err(BudgetingErrors::FailedToCreateCategory("Not sure about this error".to_string()))
-            }
-        }
-
+            .execute(self.conn)?;
         let r = categories
             .order(id.desc())
             .limit(1)
-            .first::<Category>(self.conn)
-            .or_else(|e: diesel::result::Error| {
-                Err(BudgetingErrors::CategoryNotFound)
-            })?;
+            .first::<Category>(self.conn)?;
         Ok(r)
+    }
+}
+
+impl From<diesel::result::Error> for BudgetingErrors {
+    fn from(value: diesel::result::Error) -> Self {
+        return match value {
+            diesel::result::Error::NotFound => BudgetingErrors::CategoryNotFound,
+            DatabaseError(e, _) => match e {
+                DatabaseErrorKind::UniqueViolation => BudgetingErrors::CategoryAlreadyExists,
+                DatabaseErrorKind::ForeignKeyViolation => {
+                    BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())
+                }
+                _ => BudgetingErrors::UnspecifiedDatabaseError,
+            },
+            _ => BudgetingErrors::UnspecifiedDatabaseError,
+        };
     }
 }
 
@@ -151,7 +151,6 @@ impl<'a> CategoryModel<'a> {
             .first::<Category>(self.conn)
             .unwrap()
     }
-
 
     pub(crate) fn delete(conn: &mut SqliteConnection, id: i32) -> usize {
         imp_db!(categories);
@@ -217,4 +216,3 @@ impl<'a> CategoryModel<'a> {
         return_sum!(result_option)
     }
 }
-

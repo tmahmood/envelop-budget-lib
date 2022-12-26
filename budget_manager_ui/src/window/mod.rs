@@ -27,6 +27,7 @@ use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
+use crate::new_category_dialog::NewCategoryDialog;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -198,6 +199,14 @@ impl Window {
         let action_fund_transfer = gio::SimpleAction::new("fund-transfer", None);
         action_fund_transfer.connect_activate(clone!(@weak self as window => move |_, _| {
             window.fund_transfer();
+            window.update_budget_details();
+            window.setup_transactions();
+        }));
+        self.add_action(&action_fund_transfer);
+
+        let action_new_category = gio::SimpleAction::new("new-category", None);
+        action_new_category.connect_activate(clone!(@weak self as window => move |_, _| {
+            window.new_category();
         }));
         self.add_action(&action_fund_transfer);
     }
@@ -227,28 +236,28 @@ impl Window {
             "valid-transaction-entered",
             false,
             closure_local!(@watch self as window => move |dialog: NewTransactionDialog| {
-                let entry_payee = dialog.imp().entry_payee.get();
-                let entry_note = dialog.imp().entry_note.get();
-                let entry_amount = dialog.imp().entry_amount.get();
-                let toggle_income = dialog.imp().toggle_income.get();
-                let entry_date = dialog.imp().transaction_date.get();
+                let payee = dialog.imp().entry_payee.get().text();
+                let note = dialog.imp().entry_note.get().text();
+                let amount = dialog.imp().entry_amount.get().value();
+                let is_income = dialog.imp().toggle_income.get().is_active();
+                let date = dialog.imp().transaction_date.get().imp().date().unwrap();
                 let category_name = dialog.imp().category_selected.borrow();
-
-                let payee = entry_payee.text();
-                let note = entry_note.text();
-                let amount = entry_amount.value();
-                let date = entry_date.imp().date().unwrap();
-
                 dialog.destroy();
                 let category_id = {
                     let mut budgeting = window.imp().budgeting.borrow_mut();
                     let mut tb = budgeting.new_transaction_to_category(&category_name);
-                    if toggle_income.is_active() {
+                    if is_income {
                         tb.income(amount);
                     } else {
                         tb.expense(amount);
                     }
-                    let t = tb.payee(&payee).date_created(date).note(&note).done();
+                    let t = match tb.payee(&payee).date_created(date).note(&note).done() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            window.show_toast("Failed to create Transaction");
+                            return;
+                        }
+                    };
                     t.category_id()
                 };
                 if window.current_category_id() == category_id {
@@ -260,6 +269,32 @@ impl Window {
         dialog.present();
     }
 
+
+    fn new_category(&self) {
+        // Create new Dialog
+        let mut b = self.imp().budgeting.borrow_mut();
+        let categories = b.categories();
+        let dialog = NewCategoryDialog::new(self, categories);
+        dialog.connect_closure(
+            "valid-category-entered",
+            false,
+            closure_local!(@watch self as window => move |dialog: NewCategoryDialog| {
+                let category_name = dialog.imp().entry_category_name.get().text();
+                let amount = dialog.imp().entry_amount.get().value();
+                dialog.destroy();
+                let mut budgeting = window.imp().budgeting.borrow_mut();
+                match budgeting.create_category_and_allocate(&category_name, amount) {
+                    Ok(category) => {
+                        window.imp().current_category_id.replace(category.id());
+                        window.update_budget_details();
+                        window.setup_transactions();
+                    },
+                    Err(e) => { window.show_toast(&format!("{}", e)) }
+                };
+            }),
+        );
+        dialog.present();
+    }
     fn setup_callbacks(&self) {
         self.imp()
             .back_button
@@ -285,6 +320,7 @@ impl Window {
                 // will try to allocate money to this category
                 window.imp().leaflet.navigate(adw::NavigationDirection::Back);
             }));
+
     }
 
     fn show_toast(&self, text: &str) {
