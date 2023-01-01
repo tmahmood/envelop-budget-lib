@@ -1,5 +1,5 @@
 use adw::gio;
-use adw::glib::{clone, closure_local, GStr, GString, Type};
+use adw::glib::{clone, closure_local, GStr, GString, Type, Variant};
 use glib::Binding;
 use gtk::glib::DateTime;
 use gtk::prelude::*;
@@ -22,7 +22,6 @@ pub struct NewCategoryDialog {
     #[template_child]
     pub entry_category_name: TemplateChild<Entry>,
 
-
     #[template_child]
     pub entry_amount: TemplateChild<SpinButton>,
 
@@ -31,8 +30,20 @@ pub struct NewCategoryDialog {
 
     // Vector holding the bindings to properties of `TransactionObject`
     pub(crate) categories: RefCell<Vec<String>>,
+    pub(crate) category: RefCell<Option<Category>>,
 }
 
+impl NewCategoryDialog {
+    pub fn set_fields(&self) {
+        let c = self.category.borrow();
+        if c.is_none() {
+            return;
+        }
+        let category = c.as_ref().unwrap();
+        self.entry_category_name.set_text(&category.name());
+        self.entry_amount.set_value(category.allocated());
+    }
+}
 // The central trait for subclassing a GObject
 #[glib::object_subclass]
 impl ObjectSubclass for NewCategoryDialog {
@@ -55,12 +66,19 @@ impl ObjectImpl for NewCategoryDialog {
     fn signals() -> &'static [Signal] {
         static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
             // get calls after
-            vec![Signal::builder("valid-category-entered").build()]
+            vec![Signal::builder("valid-category-entered")
+                .param_types([
+                    Variant::static_type(),
+                    Variant::static_type(),
+                    Variant::static_type(),
+                ])
+                .build()]
         });
         SIGNALS.as_ref()
     }
 
-    fn constructed(&self) { self.parent_constructed();
+    fn constructed(&self) {
+        self.parent_constructed();
 
         let dialog_button = self
             .obj()
@@ -107,8 +125,36 @@ impl DialogImpl for NewCategoryDialog {
         }
 
         if no_error {
-            self.obj()
-                .emit_by_name::<()>("valid-category-entered", &[]);
+            let name = self.entry_category_name.text();
+            let amount = self.entry_amount.value();
+            let category_opt = self.category.borrow().clone();
+
+            if category_opt.is_none() {
+                self.obj().emit_by_name::<()>(
+                    "valid-category-entered",
+                    &[
+                        &name.to_variant(),
+                        &amount.to_variant(),
+                        &None::<i32>.to_variant(),
+                    ],
+                );
+            } else {
+                let category = category_opt.unwrap();
+                let name = if name != category.name() {
+                    name.to_variant()
+                } else {
+                    None::<String>.to_variant()
+                };
+                let amount = if amount != category.allocated() {
+                    amount.to_variant()
+                } else {
+                    None::<f64>.to_variant()
+                };
+                self.obj().emit_by_name::<()>(
+                    "valid-category-entered",
+                    &[&name, &amount, &category.id().to_variant()],
+                );
+            }
         }
     }
 }

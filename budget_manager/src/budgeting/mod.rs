@@ -64,24 +64,37 @@ impl Budgeting {
             .transfer_from(amount)
             .payee(dest)
             .note(&format!("Funded {}", dest))
-            .done();
+            .done()?;
         self.new_transaction_to_category(dest)
             .transfer_to(amount)
             .payee(src)
             .note(&format!("Received {}", src))
-            .done();
+            .done()?;
         Ok(())
     }
 
-    pub fn fund_from_unallocated(
+    pub fn update_category(
         &mut self,
-        category: &str
-    ) -> Result<(), BudgetingErrors> {
+        category_id: i32,
+        name: Option<String>,
+        amount: Option<f64>,
+    ) -> Result<i32, BudgetingErrors> {
+        CategoryModel::update(self.conn(), category_id, name, amount)
+    }
+
+    pub fn delete_category(
+        &mut self,
+        category_id: i32,
+    ) -> Result<(usize), BudgetingErrors> {
+        CategoryModel::delete(self.conn(), category_id)
+    }
+
+    pub fn fund_from_unallocated(&mut self, category: &str) -> Result<(), BudgetingErrors> {
         let mut c = self.get_category_model(category);
         let balance = c.balance();
         let allocated = c.allocated();
         if balance >= allocated {
-            return Err(BudgetingErrors::AlreadyFunded)
+            return Err(BudgetingErrors::AlreadyFunded);
         }
         let unallocated_balance = self.uncategorized_balance();
         let to_fund = if balance > 0. {
@@ -95,14 +108,17 @@ impl Budgeting {
         self.transfer_fund(DEFAULT_CATEGORY, category, to_fund)
     }
     // creates a new category and allocates the budget
-    pub fn create_category_and_allocate(
+    pub fn create_category(
         &mut self,
         category: &str,
         allocate: f64,
-    ) -> Result<Category, BudgetingErrors> {
-        let t = self.category_builder(category).allocated(allocate).done()?;
-        self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
-        Ok(t)
+        transfer: bool,
+    ) -> Result<i32, BudgetingErrors> {
+        let c = self.category_builder(category).allocated(allocate).done()?;
+        if transfer {
+            self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
+        }
+        Ok(c.id())
     }
 
     pub fn category_model(&mut self, category: Category) -> CategoryModel {
@@ -191,13 +207,12 @@ impl Budgeting {
         // create the default category
         self.category_builder(DEFAULT_CATEGORY)
             .allocated(0.)
-            .done()
-            .expect("Failed to save default category");
+            .done()?;
         self.new_transaction_to_category(DEFAULT_CATEGORY)
             .income(amount)
             .payee("Self")
             .note("Initial Balance")
-            .done();
+            .done()?;
         Ok(b)
     }
 
@@ -329,9 +344,9 @@ pub mod tests {
         let mut blib = Budgeting::new();
         blib.new_budget("main", 10000.)
             .expect("Failed to create new budget");
-        blib.create_category_and_allocate("Bills", BILLS)
+        blib.create_category("Bills", BILLS, true)
             .expect("Failed to create category");
-        blib.create_category_and_allocate("Travel", TRAVEL)
+        blib.create_category("Travel", TRAVEL, true)
             .expect("Failed to create category");
         let v = blib.get_category_model(DEFAULT_CATEGORY).transactions();
         println!("{:#?}", v);
@@ -411,7 +426,7 @@ pub mod tests {
         let mut blib = Budgeting::new();
         new_budget_using_budgeting(&mut blib);
         let _home = {
-            let home = blib.create_category_and_allocate("Home", 3000.).unwrap();
+            let home = blib.create_category("Home", 3000., true).unwrap();
             assert_eq!(home.allocated(), 3000.0);
             assert_eq!(blib.category_balance("Home"), 3000.0);
             home
@@ -474,10 +489,7 @@ pub mod tests {
             .payee("someone")
             .note("test")
             .done();
-        assert_eq!(
-            blib.fund_from_unallocated("Bills"),
-            Ok(())
-        );
+        assert_eq!(blib.fund_from_unallocated("Bills"), Ok(()));
         assert_eq!(blib.category_balance("Bills"), BILLS);
     }
 }

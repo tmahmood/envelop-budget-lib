@@ -109,6 +109,15 @@ impl ObjectImpl for NewTransactionDialog {
             }),
         );
 
+        self.toggle_income
+            .connect_toggled(clone!(@weak self as dialog => move |btn| {
+                if btn.is_active() {
+                    dialog.category_list.set_sensitive(false);
+                }else {
+                    dialog.category_list.set_sensitive(true);
+                }
+            }));
+
         self.category_list
             .connect_selected_notify(clone!(@weak self as dialog => move |d| {
                 let selected = d.selected();
@@ -168,7 +177,7 @@ impl NewTransactionDialog {
                 selected_category_id = ii as u32;
                 break;
             }
-        };
+        }
         self.categories.replace(categories);
         let store = self.categories.borrow();
         let c: StringList = store.iter().map(|v| v.name()).collect();

@@ -10,15 +10,37 @@
                 <property name="margin-top">12</property>
                 <property name="margin-bottom">12</property>
                 <style>
-                    <class name="opaque"/>
-                    <class name="circular"/>
+                    <class name="flat"/>
                 </style>
             </object>
         </child>
         <child type="suffix">
-            <object class="GtkLabel" id="allocated_label">
-                <property name="label">Assigned</property>
-                <property name="halign">GTK_ALIGN_END</property>
+            <object class="GtkBox">
+                <property name="margin-top">6</property>
+                <property name="margin-bottom">6</property>
+                <style>
+                    <class name="toolbar"/>
+                </style>
+                <child>
+                    <object class="GtkButton" id="btn_edit_category">
+                        <signal name="clicked" handler="handle_edit_button_clicked"
+                                swapped="True"/>
+                        <property name="icon-name">edit-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Edit Category</property>
+                        
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="btn_delete_category">
+                        <signal name="clicked" handler="handle_delete_button_clicked"
+                                swapped="True"/>
+                        <property name="icon-name">user-trash-symbolic</property>
+                        <property name="tooltip-text" translatable="yes">Delete Category</property>
+                        <style>
+                            <class name="error"/>
+                        </style>
+                    </object>
+                </child>
             </object>
         </child>
     </template>

@@ -69,7 +69,7 @@ impl Window {
         let id = list_box.imp().category_id_label.get().label().unwrap();
         self.current_category_id.replace(id.parse().unwrap());
         self.obj().setup_transactions();
-        self.obj().update_budget_details();
+        self.obj().setup_budget_details();
         self.leaflet.navigate(NavigationDirection::Forward);
     }
 }
@@ -100,7 +100,7 @@ impl ObjectImpl for Window {
         // Setup
         let obj = self.obj();
         obj.setup_budget_account();
-        obj.update_budget_details();
+        obj.setup_budget_details();
         obj.setup_categories();
         obj.setup_transactions();
         obj.setup_actions();

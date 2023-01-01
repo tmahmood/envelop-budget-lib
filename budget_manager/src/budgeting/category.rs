@@ -39,6 +39,13 @@ pub struct NewTransactionCategory<'a> {
     budget_account_id: i32,
 }
 
+#[derive(AsChangeset)]
+#[diesel(table_name = categories)]
+pub struct CategoryForm {
+    pub name: Option<String>,
+    pub allocated: Option<f64>,
+}
+
 /// Only way to create transaction category.
 /// as we need to maintain the budget_account_id
 pub struct CategoryBuilder<'a> {
@@ -144,6 +151,35 @@ impl<'a> CategoryModel<'a> {
         Self { conn, category }
     }
 
+    pub fn update(
+        conn: &mut SqliteConnection,
+        category_id: i32,
+        new_name: Option<String>,
+        new_allocated: Option<f64>,
+    ) -> Result<i32, BudgetingErrors> {
+        imp_db!(categories);
+        let r = diesel::update(categories.find(category_id))
+            .set(&CategoryForm {
+                name: new_name,
+                allocated: new_allocated,
+            })
+            .execute(conn);
+        match r {
+            Ok(_) => Ok(category_id),
+            Err(_) => Err(BudgetingErrors::CategoryUpdateFailed),
+        }
+    }
+
+    pub(crate) fn delete(conn: &mut SqliteConnection, category_id: i32) -> Result<usize, BudgetingErrors> {
+        imp_db!(categories);
+        let r = diesel::delete(categories.filter(id.eq(&category_id)))
+            .execute(conn);
+        match r {
+            Ok(how_many) => Ok(how_many),
+            Err(_) => Err(BudgetingErrors::CategoryDeleteFailed),
+        }
+    }
+
     pub fn category(&mut self) -> Category {
         imp_db!(categories);
         categories
@@ -152,12 +188,6 @@ impl<'a> CategoryModel<'a> {
             .unwrap()
     }
 
-    pub(crate) fn delete(conn: &mut SqliteConnection, id: i32) -> usize {
-        imp_db!(categories);
-        diesel::delete(categories.filter(id.eq(&id)))
-            .execute(conn)
-            .expect("Error deleting transaction category")
-    }
 
     pub(crate) fn load(conn: &mut SqliteConnection, cid: i32) -> QueryResult<Category> {
         imp_db!(categories);

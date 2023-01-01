@@ -26,8 +26,8 @@ impl CategoryRow {
     }
 
     pub fn bind_objects(self, category_object: &CategoryObject) -> Self {
+        self.imp().category_id.replace(category_object.property("id"));
         let id_label = self.imp().category_id_label.get();
-        let allocated_label = self.imp().allocated_label.get();
         category_object
             .bind_property("id", &id_label, "label")
             .flags(BindingFlags::SYNC_CREATE)

@@ -13,6 +13,7 @@ use adw::glib::{closure_local, BindingFlags};
 use crate::category::category_object::CategoryObject;
 use crate::category::category_row::CategoryRow;
 use crate::fix_float;
+use crate::new_category_dialog::NewCategoryDialog;
 use crate::summary::summary_object::imp::SummaryData;
 use crate::summary::summary_object::SummaryObject;
 use adw::builders::ToastBuilder;
@@ -21,13 +22,12 @@ use adw::Application;
 use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
-use gtk::glib::{clone, Object};
+use gtk::glib::{clone, Object, Variant};
 use gtk::subclass::prelude::*;
 use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
-use crate::new_category_dialog::NewCategoryDialog;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -42,7 +42,6 @@ impl Window {
     }
 
     pub fn setup_budget_account(&self) {
-        self.imp().current_category_id.replace(1);
         let mut conn = budget_manager::establish_connection();
         budget_manager::run_migrations(&mut conn).expect("Failed to initialize database");
         let mut budgeting = Budgeting::new();
@@ -50,6 +49,8 @@ impl Window {
             .set_current_budget("main")
             .or_else(|_| budgeting.new_budget("main", 0.))
             .expect("Failed to get budget account");
+        let c = budgeting.default_category();
+        self.imp().current_category_id.replace(c.id());
         self.imp().budgeting.replace(budgeting);
     }
 
@@ -104,7 +105,7 @@ impl Window {
         self.set_categories_list_visible_only_when_there_are_categories(&categories);
     }
 
-    pub(crate) fn update_budget_details(&self) {
+    pub(crate) fn setup_budget_details(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let cid = self.imp().current_category_id.borrow();
         let mut category = budgeting
@@ -181,7 +182,47 @@ impl Window {
     }
 
     fn create_category_row(&self, category_object: &CategoryObject) -> CategoryRow {
-        CategoryRow::new().bind_objects(category_object)
+        let c = CategoryRow::new().bind_objects(category_object);
+        c.connect_closure(
+            "category-selected-for-edit",
+            false,
+            closure_local!(@watch self as window => move |_: &CategoryRow, category_id: i32| {
+                window.category_form(Some(category_id));
+            }),
+        );
+        c.connect_closure(
+            "category-selected-for-delete",
+            false,
+            closure_local!(@watch self as window => move |_: &CategoryRow, category_id: i32| {
+                window.delete_category(category_id);
+            }),
+        );
+        c
+    }
+
+    fn delete_category(&self, category_id: i32) {
+        // few things must be done
+        // 1. remove all fund transfer
+        let r = {
+            let mut budget_account = self.imp().budgeting.borrow_mut();
+            budget_account.delete_category(category_id)
+        };
+        match r {
+            Ok(_) => {
+                let cid = { self.imp().current_category_id.borrow().clone() };
+                let default = { self.imp().budgeting.borrow_mut().default_category().id() };
+                if cid == category_id {
+                    self.imp().current_category_id.replace(default);
+                }
+                self.setup_categories();
+                self.setup_budget_details();
+                self.setup_transactions();
+            }
+            Err(BudgetingErrors::CategoryDeleteFailed) => {
+                self.show_toast("Failed to delete category")
+            }
+            Err(e) => self.show_toast(&format!("Something went wrong. {:?}", e)),
+        };
     }
 
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
@@ -192,23 +233,23 @@ impl Window {
         // Create action to create new collection and add to action group "win"
         let action_new_list = gio::SimpleAction::new("new-transaction", None);
         action_new_list.connect_activate(clone!(@weak self as window => move |_, _| {
-            window.new_transaction();
+            window.transaction_form();
         }));
         self.add_action(&action_new_list);
 
         let action_fund_transfer = gio::SimpleAction::new("fund-transfer", None);
         action_fund_transfer.connect_activate(clone!(@weak self as window => move |_, _| {
             window.fund_transfer();
-            window.update_budget_details();
+            window.setup_budget_details();
             window.setup_transactions();
         }));
         self.add_action(&action_fund_transfer);
 
         let action_new_category = gio::SimpleAction::new("new-category", None);
         action_new_category.connect_activate(clone!(@weak self as window => move |_, _| {
-            window.new_category();
+            window.category_form(None);
         }));
-        self.add_action(&action_fund_transfer);
+        self.add_action(&action_new_category);
     }
 
     fn fund_transfer(&self) {
@@ -222,12 +263,14 @@ impl Window {
         match budget_account.fund_from_unallocated(&category_name) {
             Ok(_) => {}
             Err(BudgetingErrors::AlreadyFunded) => self.show_toast("No need to fund"),
-            Err(BudgetingErrors::OverFundingError) => self.show_toast("You do not have enough money to fund this category"),
-            Err(e) => { self.show_toast(&format!("Something went wrong. {:?}", e)) }
+            Err(BudgetingErrors::OverFundingError) => {
+                self.show_toast("You do not have enough money to fund this category")
+            }
+            Err(e) => self.show_toast(&format!("Something went wrong. {:?}", e)),
         }
     }
 
-    fn new_transaction(&self) {
+    fn transaction_form(&self) {
         // Create new Dialog
         let mut b = self.imp().budgeting.borrow_mut();
         let categories = b.categories();
@@ -245,7 +288,12 @@ impl Window {
                 dialog.destroy();
                 let category_id = {
                     let mut budgeting = window.imp().budgeting.borrow_mut();
-                    let mut tb = budgeting.new_transaction_to_category(&category_name);
+                    let cname = if is_income {
+                        DEFAULT_CATEGORY
+                    } else {
+                        &category_name
+                    };
+                    let mut tb = budgeting.new_transaction_to_category(cname);
                     if is_income {
                         tb.income(amount);
                     } else {
@@ -261,7 +309,7 @@ impl Window {
                     t.category_id()
                 };
                 if window.current_category_id() == category_id {
-                    window.update_budget_details();
+                    window.setup_budget_details();
                     window.setup_transactions();
                 }
             }),
@@ -269,32 +317,61 @@ impl Window {
         dialog.present();
     }
 
-
-    fn new_category(&self) {
+    fn category_form(&self, edit_id: Option<i32>) {
         // Create new Dialog
-        let mut b = self.imp().budgeting.borrow_mut();
-        let categories = b.categories();
-        let dialog = NewCategoryDialog::new(self, categories);
+        let mut budgeting = self.imp().budgeting.borrow_mut();
+        let categories = budgeting.categories();
+        let category = edit_id.and_then(|eid| {
+            Some(match categories.binary_search_by(|v| v.id().cmp(&eid)) {
+                Ok(category_index) => categories[category_index].clone(),
+                Err(_) => {
+                    self.show_toast("Failed to load category");
+                    return None;
+                }
+            })
+        });
+        let dialog = NewCategoryDialog::new(self, categories, category);
         dialog.connect_closure(
             "valid-category-entered",
             false,
-            closure_local!(@watch self as window => move |dialog: NewCategoryDialog| {
-                let category_name = dialog.imp().entry_category_name.get().text();
-                let amount = dialog.imp().entry_amount.get().value();
-                dialog.destroy();
-                let mut budgeting = window.imp().budgeting.borrow_mut();
-                match budgeting.create_category_and_allocate(&category_name, amount) {
-                    Ok(category) => {
-                        window.imp().current_category_id.replace(category.id());
-                        window.update_budget_details();
-                        window.setup_transactions();
-                    },
-                    Err(e) => { window.show_toast(&format!("{}", e)) }
-                };
+            closure_local!(@watch self as window => move |dialog: &NewCategoryDialog, name: Variant, amount: Variant, category_id: Variant | {
+                window.save_category(dialog, name, amount, category_id);
             }),
         );
         dialog.present();
     }
+
+    fn save_category(
+        &self,
+        dialog: &NewCategoryDialog,
+        _name: Variant,
+        _amount: Variant,
+        category_id_v: Variant,
+    ) {
+        let cid = category_id_v.get::<i32>();
+        let name = _name.get::<String>();
+        let amount = _amount.get::<f64>();
+        dialog.destroy();
+        let r = {
+            let mut budgeting = self.imp().budgeting.borrow_mut();
+            if cid.is_some() {
+                let category_id = cid.unwrap();
+                budgeting.update_category(category_id, name, amount)
+            } else {
+                budgeting.create_category(&name.unwrap(), amount.unwrap(), false)
+            }
+        };
+        match r {
+            Ok(category_id) => {
+                self.imp().current_category_id.replace(category_id);
+                self.setup_categories();
+                self.setup_budget_details();
+                self.setup_transactions();
+            }
+            Err(e) => self.show_toast(&format!("{}", e)),
+        };
+    }
+
     fn setup_callbacks(&self) {
         self.imp()
             .back_button
@@ -320,7 +397,6 @@ impl Window {
                 // will try to allocate money to this category
                 window.imp().leaflet.navigate(adw::NavigationDirection::Back);
             }));
-
     }
 
     fn show_toast(&self, text: &str) {
