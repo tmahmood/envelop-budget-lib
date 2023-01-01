@@ -54,12 +54,6 @@ impl CategoryRow {
             .emit_by_name::<()>("category-selected-for-edit", &[&category_id]);
     }
 
-    #[template_callback]
-    fn handle_delete_button_clicked(&self, btn: &Button) {
-        let category_id = self.category_id.borrow().clone();
-        self.obj()
-            .emit_by_name::<()>("category-selected-for-delete", &[&category_id]);
-    }
 }
 
 impl ObjectImpl for CategoryRow {
@@ -69,8 +63,6 @@ impl ObjectImpl for CategoryRow {
             vec![
                 Signal::builder("category-selected-for-edit")
                 .param_types([i32::static_type()]).build(),
-                Signal::builder("category-selected-for-delete")
-                    .param_types([i32::static_type()]).build()
             ]
         });
         SIGNALS.as_ref()

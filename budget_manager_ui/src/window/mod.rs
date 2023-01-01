@@ -190,13 +190,6 @@ impl Window {
                 window.category_form(Some(category_id));
             }),
         );
-        c.connect_closure(
-            "category-selected-for-delete",
-            false,
-            closure_local!(@watch self as window => move |_: &CategoryRow, category_id: i32| {
-                window.delete_category(category_id);
-            }),
-        );
         c
     }
 

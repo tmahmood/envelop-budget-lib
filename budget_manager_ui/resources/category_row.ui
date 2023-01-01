@@ -30,17 +30,6 @@
                         
                     </object>
                 </child>
-                <child>
-                    <object class="GtkButton" id="btn_delete_category">
-                        <signal name="clicked" handler="handle_delete_button_clicked"
-                                swapped="True"/>
-                        <property name="icon-name">user-trash-symbolic</property>
-                        <property name="tooltip-text" translatable="yes">Delete Category</property>
-                        <style>
-                            <class name="error"/>
-                        </style>
-                    </object>
-                </child>
             </object>
         </child>
     </template>
