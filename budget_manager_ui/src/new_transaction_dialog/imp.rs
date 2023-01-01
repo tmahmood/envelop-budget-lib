@@ -1,5 +1,5 @@
 use adw::gio;
-use adw::glib::{clone, closure_local, GStr, GString, Type};
+use adw::glib::{clone, closure_local, GStr, GString, Type, Variant};
 use glib::Binding;
 use gtk::glib::DateTime;
 use gtk::prelude::*;
@@ -65,14 +65,6 @@ impl ObjectSubclass for NewTransactionDialog {
 
 // Trait shared by all GObjects
 impl ObjectImpl for NewTransactionDialog {
-    fn signals() -> &'static [Signal] {
-        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
-            // get calls after
-            vec![Signal::builder("valid-transaction-entered").build()]
-        });
-        SIGNALS.as_ref()
-    }
-
     fn constructed(&self) {
         self.parent_constructed();
 
@@ -126,6 +118,24 @@ impl ObjectImpl for NewTransactionDialog {
                 dialog.category_selected.replace(name);
             }));
     }
+
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            // get calls after
+            vec![
+                Signal::builder("valid-transaction-entered")
+                    .param_types([
+                        Variant::static_type(), // payee
+                        Variant::static_type(), // note
+                        Variant::static_type(), // amount
+                        Variant::static_type(), // is_income
+                        DateTime::static_type(), // date
+                        Variant::static_type(), // category name
+                    ])
+                    .build()]
+        });
+        SIGNALS.as_ref()
+    }
 }
 
 // Trait shared by all widgets
@@ -163,8 +173,22 @@ impl DialogImpl for NewTransactionDialog {
         }
 
         if no_error {
+            let payee = self.entry_payee.get().text();
+            let note = self.entry_note.get().text();
+            let amount = self.entry_amount.get().value();
+            let is_income = self.toggle_income.get().is_active();
+            let date = self.transaction_date.get().imp().date_o().unwrap();
+            let category_name = self.category_selected.borrow();
+
             self.obj()
-                .emit_by_name::<()>("valid-transaction-entered", &[]);
+                .emit_by_name::<()>("valid-transaction-entered", &[
+                    &payee.to_variant(),
+                    &note.to_variant(),
+                    &amount.to_variant(),
+                    &is_income.to_variant(),
+                    &date,
+                    &category_name.to_variant(),
+                ]);
         }
     }
 }

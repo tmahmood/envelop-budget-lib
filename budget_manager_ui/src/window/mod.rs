@@ -8,14 +8,14 @@ use std::fmt::Error;
 use std::num::ParseFloatError;
 use std::ops::Deref;
 
-use adw::glib::{closure_local, BindingFlags};
+use adw::glib::{closure_local, BindingFlags, DateTime};
 
 use crate::category::category_object::CategoryObject;
 use crate::category::category_row::CategoryRow;
-use crate::fix_float;
 use crate::new_category_dialog::NewCategoryDialog;
 use crate::summary::summary_object::imp::SummaryData;
 use crate::summary::summary_object::SummaryObject;
+use crate::{fix_float, from_gdate_to_naive_date_time};
 use adw::builders::ToastBuilder;
 use adw::prelude::*;
 use adw::Application;
@@ -271,43 +271,71 @@ impl Window {
         dialog.connect_closure(
             "valid-transaction-entered",
             false,
-            closure_local!(@watch self as window => move |dialog: NewTransactionDialog| {
-                let payee = dialog.imp().entry_payee.get().text();
-                let note = dialog.imp().entry_note.get().text();
-                let amount = dialog.imp().entry_amount.get().value();
-                let is_income = dialog.imp().toggle_income.get().is_active();
-                let date = dialog.imp().transaction_date.get().imp().date().unwrap();
-                let category_name = dialog.imp().category_selected.borrow();
-                dialog.destroy();
-                let category_id = {
-                    let mut budgeting = window.imp().budgeting.borrow_mut();
-                    let cname = if is_income {
-                        DEFAULT_CATEGORY
-                    } else {
-                        &category_name
-                    };
-                    let mut tb = budgeting.new_transaction_to_category(cname);
-                    if is_income {
-                        tb.income(amount);
-                    } else {
-                        tb.expense(amount);
-                    }
-                    let t = match tb.payee(&payee).date_created(date).note(&note).done() {
-                        Ok(v) => v,
-                        Err(_) => {
-                            window.show_toast("Failed to create Transaction");
-                            return;
-                        }
-                    };
-                    t.category_id()
-                };
-                if window.current_category_id() == category_id {
-                    window.setup_budget_details();
-                    window.setup_transactions();
-                }
+            closure_local!(@watch self as window => move |dialog: NewTransactionDialog,
+                _payee: Variant,
+                _note: Variant,
+                _amount: Variant,
+                _is_income: Variant,
+                _date: DateTime,
+                _category_name: Variant
+                | {
+                    window.save_transaction(
+                        dialog,
+                        _payee,
+                        _note,
+                        _amount,
+                        _is_income,
+                        _date,
+                        _category_name
+                    );
             }),
         );
         dialog.present();
+    }
+
+    fn save_transaction(
+        &self,
+        dialog: NewTransactionDialog,
+        _payee: Variant,
+        _note: Variant,
+        _amount: Variant,
+        _is_income: Variant,
+        _date: DateTime,
+        _category_name: Variant,
+    ) {
+        let payee = _payee.get::<String>().unwrap();
+        let note = _note.get::<String>().unwrap();
+        let amount = _amount.get::<f64>().unwrap();
+        let is_income = _is_income.get::<bool>().unwrap();
+        let date = from_gdate_to_naive_date_time(_date).unwrap();
+        let category_name = _category_name.get::<String>().unwrap();
+        dialog.destroy();
+        let category_id = {
+            let mut budgeting = self.imp().budgeting.borrow_mut();
+            let cname = if is_income {
+                DEFAULT_CATEGORY
+            } else {
+                &category_name
+            };
+            let mut tb = budgeting.new_transaction_to_category(cname);
+            if is_income {
+                tb.income(amount);
+            } else {
+                tb.expense(amount);
+            }
+            let t = match tb.payee(&payee).date_created(date).note(&note).done() {
+                Ok(v) => v,
+                Err(_) => {
+                    self.show_toast("Failed to create Transaction");
+                    return;
+                }
+            };
+            t.category_id()
+        };
+        if self.current_category_id() == category_id {
+            self.setup_budget_details();
+            self.setup_transactions();
+        }
     }
 
     fn category_form(&self, edit_id: Option<i32>) {

@@ -8,6 +8,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, CompositeTemplate};
 use std::cell::RefCell;
+use crate::from_gdate_to_naive_date_time;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(file = "../../resources/calendar_button.ui")]
@@ -38,9 +39,7 @@ impl CalendarButton {
             return None;
         }
         let _d = self.id_calendar.date();
-        NaiveDate::from_ymd_opt(_d.year(), _d.month() as u32, _d.day_of_month() as u32)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
+        from_gdate_to_naive_date_time(_d)
     }
 
     pub fn date_o(&self) -> Option<DateTime> {

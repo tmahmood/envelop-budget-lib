@@ -1,6 +1,8 @@
 use adw::prelude::*;
 
 use adw::{gio, Application};
+use chrono::{NaiveDate, NaiveDateTime};
+use gtk::glib::DateTime;
 
 use crate::window::Window;
 
@@ -37,3 +39,8 @@ fn fix_float(float: f64) -> String {
     format!("{0:.2}", float)
 }
 
+fn from_gdate_to_naive_date_time(_d: DateTime) -> Option<NaiveDateTime> {
+    NaiveDate::from_ymd_opt(_d.year(), _d.month() as u32, _d.day_of_month() as u32)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+}
