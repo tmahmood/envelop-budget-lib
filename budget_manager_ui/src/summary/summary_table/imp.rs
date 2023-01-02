@@ -1,7 +1,12 @@
+use std::cell::RefCell;
+use adw::glib::once_cell::sync::Lazy;
+use adw::glib::subclass::Signal;
 use glib::Binding;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, CompositeTemplate, ListBox};
+use gtk::ResponseType::No;
+use budget_manager::budgeting::transaction::TransactionType;
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
@@ -24,6 +29,8 @@ pub struct SummaryTable {
 
     #[template_child]
     pub popover: TemplateChild<gtk::Popover>,
+
+    pub filter_by: RefCell<Option<TransactionType>>,
 }
 
 // The central trait for subclassing a GObject
@@ -45,7 +52,19 @@ impl ObjectSubclass for SummaryTable {
 }
 
 // Trait shared by all GObjects
-impl ObjectImpl for SummaryTable {}
+impl ObjectImpl for SummaryTable {
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            vec![Signal::builder("transaction-filter-changed")
+                .build()]
+        });
+        SIGNALS.as_ref()
+    }
+
+    fn constructed(&self) {
+        self.filter_by.replace(None);
+    }
+}
 
 // Trait shared by all widgets
 impl WidgetImpl for SummaryTable {}
@@ -60,6 +79,25 @@ impl SummaryTable {
         if toggle.is_active() {
             self.popover.popup();
         }
+    }
+
+    #[template_callback]
+    fn handle_filter_button_clicked(&self, btn: &gtk::CheckButton) {
+        if !btn.is_active() { return }
+        let _id = btn.buildable_id().unwrap();
+        let id = _id.as_str();
+        if id == "btn_all_transactions" {
+            self.filter_by.replace(None);
+        } else if id == "btn_funded" {
+            self.filter_by.replace(Some(TransactionType::TransferIn));
+        } else if id == "btn_transfer_out" {
+            self.filter_by.replace(Some(TransactionType::TransferOut));
+        } else if id == "btn_total_income" {
+            self.filter_by.replace(Some(TransactionType::Income));
+        } else {
+            self.filter_by.replace(Some(TransactionType::Expense));
+        }
+        self.obj().emit_by_name::<()>("transaction-filter-changed", &[]);
     }
 
     #[template_callback(name = "popover_closed")]

@@ -189,9 +189,13 @@ impl<'a> CategoryModel<'a> {
     }
 
 
-    pub(crate) fn load(conn: &mut SqliteConnection, cid: i32) -> QueryResult<Category> {
+    pub fn load(conn: &mut SqliteConnection, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
         imp_db!(categories);
-        categories.find(cid).first::<Category>(conn)
+        match categories.find(cid).first::<Category>(conn) {
+            Ok(c) => Ok(CategoryModel::new(conn, c)),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError)
+        }
     }
 
     pub fn transactions(&mut self) -> Vec<Transaction> {

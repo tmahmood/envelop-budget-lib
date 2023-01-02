@@ -27,59 +27,64 @@ impl TransactionRow {
     }
 
     pub fn bind_objects(self, transaction_object: &TransactionObject) -> Self {
-        let payee_label = self.imp().payee_label.get();
+        self.imp().transaction_id.replace(transaction_object.id());
         let id_label = self.imp().transaction_id_btn.get();
-        let note_label = self.imp().note_label.get();
-        let amount_label = self.imp().amount_label.get();
-        let category_name_label = self.imp().category_name_label.get();
+        let data_inside_row_prefix = self.imp().data_inside_row_prefix.get();
+        let data_inside_row_suffix = self.imp().data_inside_row_suffix.get();
         let image = self.imp().transaction_type.get();
-        image.set_icon_size(IconSize::Large);
-        let date_created_label = self.imp().date_created_label.get();
-        match transaction_object.transaction_type().as_str() {
-            "Income" => {
-                self.imp().amount_label.set_css_classes(&["success"]);
-                image.set_icon_name(Some("zoom-in-symbolic"));
-            }
-            "Expense" => {
-                self.imp().amount_label.set_css_classes(&["error"]);
-                image.set_icon_name(Some("zoom-out-symbolic"));
-            }
-            "Transfer In" => {
-                self.imp().amount_label.set_css_classes(&["success"]);
-                image.set_icon_name(Some("go-previous"));
-            }
-            "Transfer Out" => {
-                self.imp().amount_label.set_css_classes(&["error"]);
-                image.set_icon_name(Some("go-next"));
-            }
-            _ => {
-                println!("What! {}", transaction_object.transaction_type().as_str());
-            }
-        }
+        let data_action = self.imp().data_action.get();
+        let data_inside_row = self.imp().data_inside_row.get();
         transaction_object
             .bind_property("id", &id_label, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("payee", &payee_label, "label")
+            .bind_property("payee", &self, "title")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("note", &note_label, "label")
+            .bind_property("note", &data_inside_row, "subtitle")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("only-amount", &amount_label, "label")
+            .bind_property("only-amount", &data_action, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("category-name", &category_name_label, "label")
+            .bind_property("category-name", &data_inside_row_suffix, "label")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
         transaction_object
-            .bind_property("date-created", &date_created_label, "label")
+            .bind_property("date-created", &self, "subtitle")
             .flags(BindingFlags::SYNC_CREATE)
             .build();
+
+        match transaction_object.transaction_type().as_str() {
+            "Income" => {
+                image.set_icon_name(Some("zoom-in-symbolic"));
+                image.add_css_class("success");
+                data_action.add_css_class("success");
+            }
+            "Expense" => {
+                image.set_icon_name(Some("zoom-out-symbolic"));
+                image.add_css_class("error");
+                data_action.add_css_class("error");
+            }
+            "Transfer In" => {
+                image.add_css_class("success");
+                image.set_icon_name(Some("network-receive-symbolic"));
+                data_action.add_css_class("success");
+            }
+            "Transfer Out" => {
+                image.set_icon_name(Some("network-transmit-symbolic"));
+                image.add_css_class("error");
+                data_action.add_css_class("error");
+            }
+            _ => {
+                println!("What! {}", transaction_object.transaction_type().as_str());
+            }
+        }
+        data_action.add_css_class("caption-heading");
         self
     }
 }

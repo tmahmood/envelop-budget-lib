@@ -14,6 +14,7 @@ use crate::calender_button::CalendarButton;
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
 use budget_manager::budgeting::category::Category;
+use budget_manager::budgeting::transaction::{Transaction, TransactionType};
 
 // Object holding the state
 #[derive(Default, CompositeTemplate)]
@@ -44,6 +45,7 @@ pub struct NewTransactionDialog {
     categories: RefCell<Vec<Category>>,
 
     pub category_selected: RefCell<String>,
+    pub(crate) transaction: RefCell<Option<Transaction>>,
 }
 
 // The central trait for subclassing a GObject
@@ -65,6 +67,23 @@ impl ObjectSubclass for NewTransactionDialog {
 
 // Trait shared by all GObjects
 impl ObjectImpl for NewTransactionDialog {
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            // get calls after
+            vec![Signal::builder("valid-transaction-entered")
+                .param_types([
+                    Variant::static_type(),  // payee
+                    Variant::static_type(),  // note
+                    Variant::static_type(),  // amount
+                    Variant::static_type(),  // is_income
+                    DateTime::static_type(), // date
+                    Variant::static_type(),  // category name
+                ])
+                .build()]
+        });
+        SIGNALS.as_ref()
+    }
+
     fn constructed(&self) {
         self.parent_constructed();
 
@@ -118,24 +137,6 @@ impl ObjectImpl for NewTransactionDialog {
                 dialog.category_selected.replace(name);
             }));
     }
-
-    fn signals() -> &'static [Signal] {
-        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
-            // get calls after
-            vec![
-                Signal::builder("valid-transaction-entered")
-                    .param_types([
-                        Variant::static_type(), // payee
-                        Variant::static_type(), // note
-                        Variant::static_type(), // amount
-                        Variant::static_type(), // is_income
-                        DateTime::static_type(), // date
-                        Variant::static_type(), // category name
-                    ])
-                    .build()]
-        });
-        SIGNALS.as_ref()
-    }
 }
 
 // Trait shared by all widgets
@@ -180,25 +181,39 @@ impl DialogImpl for NewTransactionDialog {
             let date = self.transaction_date.get().imp().date_o().unwrap();
             let category_name = self.category_selected.borrow();
 
-            self.obj()
-                .emit_by_name::<()>("valid-transaction-entered", &[
+            self.obj().emit_by_name::<()>(
+                "valid-transaction-entered",
+                &[
                     &payee.to_variant(),
                     &note.to_variant(),
                     &amount.to_variant(),
                     &is_income.to_variant(),
                     &date,
                     &category_name.to_variant(),
-                ]);
+                ],
+            );
         }
     }
 }
 
 impl NewTransactionDialog {
-    pub(crate) fn set_categories(&self, categories: Vec<Category>, category_id: i32) {
-        let mut selected_category_id = 0;
+    pub(crate) fn set_transaction_and_categories(
+        &self,
+        transaction: Option<Transaction>,
+        categories: Vec<Category>,
+        _category_id: i32,
+    ) {
+        self.transaction.replace(transaction);
+        let t = self.transaction.borrow();
+        let category_id = if t.is_some() {
+            t.as_ref().and_then(|v| Some(v.category_id())).unwrap()
+        } else {
+            _category_id
+        };
+        let mut selected_category_index = 0;
         for (ii, category) in categories.iter().enumerate() {
             if category.id() == category_id {
-                selected_category_id = ii as u32;
+                selected_category_index = ii as u32;
                 break;
             }
         }
@@ -206,6 +221,29 @@ impl NewTransactionDialog {
         let store = self.categories.borrow();
         let c: StringList = store.iter().map(|v| v.name()).collect();
         self.category_list.get().set_model(Some(&c));
-        self.category_list.set_selected(selected_category_id);
+        self.category_list.set_selected(selected_category_index);
+        let t = self.transaction.borrow();
+        if t.is_none() {
+            return;
+        }
+        let transaction = t.as_ref().unwrap();
+        self.entry_payee.set_text(&transaction.payee());
+        let v = transaction.amount();
+        self.entry_amount
+            .set_value(if v < 0. { v * -1. } else { v });
+        self.entry_note.set_text(&transaction.note());
+        self.transaction_date
+            .imp()
+            .set_date(transaction.date_created());
+        match TransactionType::from(transaction.transfer_type_id()) {
+            TransactionType::Income => {
+                self.toggle_income.set_active(true);
+                self.category_list.set_sensitive(false);
+            }
+            TransactionType::Expense => {
+                self.toggle_income.set_active(false);
+            }
+            TransactionType::TransferIn | TransactionType::TransferOut => {}
+        };
     }
 }

@@ -138,14 +138,14 @@ impl Budgeting {
         &mut self,
         category_id: i32,
     ) -> Result<CategoryModel, BudgetingErrors> {
-        let budget = { self.current_budget() };
-        imp_db!(categories);
-        let result: QueryResult<Category> = Category::belonging_to(&budget)
-            .filter(id.eq(category_id))
-            .first(self.conn());
-        result
-            .and_then(move |v| Ok(self.category_model(v)))
-            .map_err(|e| CategoryNotFound)
+        CategoryModel::load(self.conn(), category_id)
+    }
+
+    pub fn get_transaction_model_by_id(
+        &mut self,
+        transaction_id: i32,
+    ) -> Result<TransactionModel, BudgetingErrors> {
+        TransactionModel::load(self.conn(), transaction_id)
     }
 
     pub fn find_category(&mut self, category_name: &str) -> Result<Category, BudgetingErrors> {

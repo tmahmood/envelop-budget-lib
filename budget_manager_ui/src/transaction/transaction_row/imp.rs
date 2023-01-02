@@ -3,6 +3,12 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, CompositeTemplate, Label, Image, Button};
 use std::cell::RefCell;
+use adw::ActionRow;
+use adw::glib::once_cell::sync::Lazy;
+use adw::glib::subclass::Signal;
+use adw::subclass::action_row::ActionRowImpl;
+use adw::subclass::preferences_row::PreferencesRowImpl;
+use adw::subclass::prelude::ExpanderRowImpl;
 
 
 // Object holding the state
@@ -10,19 +16,13 @@ use std::cell::RefCell;
 #[template(file = "../../../resources/transaction_row.ui")]
 pub struct TransactionRow {
     #[template_child]
-    pub date_created_label: TemplateChild<Label>,
+    pub data_action: TemplateChild<Label>,
 
     #[template_child]
-    pub note_label: TemplateChild<Label>,
+    pub data_inside_row_prefix: TemplateChild<Label>,
 
     #[template_child]
-    pub payee_label: TemplateChild<Label>,
-
-    #[template_child]
-    pub amount_label: TemplateChild<Label>,
-
-    #[template_child]
-    pub category_name_label: TemplateChild<Label>,
+    pub data_inside_row_suffix: TemplateChild<Label>,
 
     #[template_child]
     pub transaction_id_btn: TemplateChild<Button>,
@@ -30,8 +30,11 @@ pub struct TransactionRow {
     #[template_child]
     pub transaction_type: TemplateChild<Image>,
 
-    // Vector holding the bindings to properties of `TransactionObject`
-    pub bindings: RefCell<Vec<Binding>>,
+    #[template_child]
+    pub data_inside_row: TemplateChild<ActionRow>,
+
+    pub transaction_id: RefCell<i32>
+
 }
 
 // The central trait for subclassing a GObject
@@ -40,10 +43,11 @@ impl ObjectSubclass for TransactionRow {
     // `NAME` needs to match `class` attribute of template
     const NAME: &'static str = "TransactionRow";
     type Type = super::TransactionRow;
-    type ParentType = gtk::Box;
+    type ParentType = adw::ExpanderRow;
 
     fn class_init(klass: &mut Self::Class) {
         Self::bind_template(klass);
+        Self::bind_template_callbacks(klass);
     }
 
     fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
@@ -51,11 +55,41 @@ impl ObjectSubclass for TransactionRow {
     }
 }
 
+#[gtk::template_callbacks]
+impl TransactionRow {
+
+    #[template_callback]
+    fn handle_edit_button_clicked(&self, btn: &Button) {
+        let transaction_id = self.transaction_id.borrow().clone();
+        self.obj()
+            .emit_by_name::<()>("transaction-selected-for-edit", &[&transaction_id]);
+    }
+
+}
+
+
 // Trait shared by all GObjects
-impl ObjectImpl for TransactionRow {}
+impl ObjectImpl for TransactionRow {
+
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
+            // get calls after
+            vec![
+                Signal::builder("transaction-selected-for-edit")
+                    .param_types([i32::static_type()]).build(),
+            ]
+        });
+        SIGNALS.as_ref()
+    }
+
+}
 
 // Trait shared by all widgets
 impl WidgetImpl for TransactionRow {}
 
 // Trait shared by all boxes
-impl BoxImpl for TransactionRow {}
+impl PreferencesRowImpl for TransactionRow {}
+
+impl ListBoxRowImpl for TransactionRow {}
+
+impl ExpanderRowImpl for TransactionRow {}

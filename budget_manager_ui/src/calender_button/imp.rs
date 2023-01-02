@@ -1,14 +1,15 @@
+use crate::from_gdate_to_naive_date_time;
 use adw::glib::once_cell::sync::Lazy;
 use adw::glib::subclass::Signal;
-use adw::glib::{Date, DateTime};
+use adw::glib::{Date, DateTime, GString};
 use adw::subclass::preferences_row::PreferencesRowImpl;
 use adw::subclass::prelude::ActionRowImpl;
-use chrono::{NaiveDate, NaiveDateTime, ParseResult};
+use budget_manager::schema::transactions::date_created;
+use chrono::{Datelike, NaiveDate, NaiveDateTime, ParseResult, Timelike};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, CompositeTemplate};
 use std::cell::RefCell;
-use crate::from_gdate_to_naive_date_time;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(file = "../../resources/calendar_button.ui")]
@@ -48,6 +49,29 @@ impl CalendarButton {
         }
         Some(self.id_calendar.date())
     }
+
+    pub fn set_date(&self, date: NaiveDate) {
+        let g = DateTime::from_local(
+            date.year(),
+            date.month() as i32,
+            date.day() as i32,
+            0,
+            0,
+            0.,
+        )
+        .unwrap();
+        let today = budget_manager::current_date().date();
+        if date == today {
+            let date = date.format("%Y-%m-%d").to_string();
+            self.set_date_field(date);
+        }
+        self.id_calendar.select_day(&g);
+    }
+
+    fn set_date_field(&self, date: String) {
+        self.calendar_button_label.set_text(&date);
+        self.placeholder.hide();
+    }
 }
 
 #[glib::object_subclass]
@@ -77,9 +101,8 @@ impl CalendarButton {
 
     #[template_callback]
     fn day_selected(&self, calendar: &gtk::Calendar) {
-        let date = calendar.date().format("%Y-%m-%d").unwrap();
-        self.calendar_button_label.set_text(&date);
-        self.placeholder.hide();
+        let date = calendar.date().format("%Y-%m-%d").unwrap().to_string();
+        self.set_date_field(date);
         self.popover.hide();
         let obj = self.obj();
         obj.emit_by_name::<()>("calendar-button-date-changed", &[&calendar.date()]);
@@ -99,6 +122,11 @@ impl ObjectImpl for CalendarButton {
                 .build()]
         });
         SIGNALS.as_ref()
+    }
+
+    fn constructed(&self) {
+        let date = self.id_calendar.date().format("%Y-%m-%d").unwrap().to_string();
+        self.set_date_field(date);
     }
 
     // Needed for direct subclasses of GtkWidget;

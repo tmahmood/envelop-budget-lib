@@ -20,6 +20,7 @@ use adw::builders::ToastBuilder;
 use adw::prelude::*;
 use adw::Application;
 use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
+use budget_manager::budgeting::transaction::{TransactionModel, TransactionType};
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
 use gtk::glib::{clone, Object, Variant};
@@ -28,6 +29,7 @@ use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
+use crate::summary::summary_table::SummaryTable;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -62,11 +64,22 @@ impl Window {
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
 
-        category.transactions().iter().for_each(|transaction| {
-            let mut tm = budgeting.transaction_model(transaction.clone());
-            let transaction_object = TransactionObject::new(&mut tm);
-            model.append(&transaction_object);
-        });
+        let filter = self.imp().summary_table.imp().filter_by.borrow().clone();
+        category
+            .transactions()
+            .iter()
+            .filter(|v| {
+                if let Some(x) = &filter {
+                    &TransactionType::from(v.transfer_type_id()) == x
+                } else {
+                    true
+                }
+            })
+            .for_each(|transaction| {
+                let mut tm = budgeting.transaction_model(transaction.clone());
+                let transaction_object = TransactionObject::new(&mut tm);
+                model.append(&transaction_object);
+            });
 
         self.imp().transactions.replace(Some(model));
         let selection_model = NoSelection::new(Some(&self.transactions()));
@@ -219,14 +232,22 @@ impl Window {
     }
 
     fn create_transaction_row(&self, transaction_object: &TransactionObject) -> TransactionRow {
-        TransactionRow::new().bind_objects(transaction_object)
+        let t = TransactionRow::new().bind_objects(transaction_object);
+        t.connect_closure(
+            "transaction-selected-for-edit",
+            false,
+            closure_local!(@watch self as window => move |_: &TransactionRow, transaction_id: i32| {
+                window.transaction_form(Some(transaction_id));
+            }),
+        );
+        t
     }
 
     fn setup_actions(&self) {
         // Create action to create new collection and add to action group "win"
         let action_new_list = gio::SimpleAction::new("new-transaction", None);
         action_new_list.connect_activate(clone!(@weak self as window => move |_, _| {
-            window.transaction_form();
+            window.transaction_form(None);
         }));
         self.add_action(&action_new_list);
 
@@ -263,11 +284,16 @@ impl Window {
         }
     }
 
-    fn transaction_form(&self) {
+    fn transaction_form(&self, edit_id: Option<i32>) {
         // Create new Dialog
-        let mut b = self.imp().budgeting.borrow_mut();
-        let categories = b.categories();
-        let dialog = NewTransactionDialog::new(self, categories);
+        let mut budgeting = self.imp().budgeting.borrow_mut();
+        let categories = budgeting.categories();
+        let transaction =
+            edit_id.and_then(|eid| match budgeting.get_transaction_model_by_id(eid) {
+                Ok(tm) => Some(tm.transaction().clone()),
+                Err(_) => None,
+            });
+        let dialog = NewTransactionDialog::new(self, categories, transaction);
         dialog.connect_closure(
             "valid-transaction-entered",
             false,
@@ -342,6 +368,8 @@ impl Window {
         // Create new Dialog
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let categories = budgeting.categories();
+        // All the categories are loaded already, so no need to access the database again
+        // just search in the list of category and we're done
         let category = edit_id.and_then(|eid| {
             Some(match categories.binary_search_by(|v| v.id().cmp(&eid)) {
                 Ok(category_index) => categories[category_index].clone(),
@@ -418,6 +446,14 @@ impl Window {
                 // will try to allocate money to this category
                 window.imp().leaflet.navigate(adw::NavigationDirection::Back);
             }));
+
+        self.imp().summary_table.connect_closure(
+            "transaction-filter-changed",
+            false,
+            closure_local!(@watch self as window => move |_: &SummaryTable| {
+                window.setup_transactions()
+            }),
+        );
     }
 
     fn show_toast(&self, text: &str) {

@@ -1,8 +1,8 @@
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
-use crate::{current_date, establish_connection, parse_date};
-use chrono::{Local, NaiveDate, NaiveDateTime, Utc};
+use crate::{current_date, parse_date};
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -177,14 +177,25 @@ impl<'a> TransactionModel<'a> {
     pub fn new(conn: &'a mut SqliteConnection, transaction: Transaction) -> Self {
         TransactionModel { transaction, conn }
     }
+
+
+    pub fn load(conn: &mut SqliteConnection, transaction_id: i32) -> Result<TransactionModel, BudgetingErrors> {
+        imp_db!(transactions);
+        match transactions.find(transaction_id).first::<Transaction>(conn) {
+            Ok(c) => Ok(TransactionModel::new(conn, c)),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::TransactionNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError)
+        }
+    }
+
     pub fn transaction(&self) -> &Transaction {
         &self.transaction
     }
 
     pub fn category_name(&mut self) -> String {
         match CategoryModel::load(self.conn, self.transaction.category_id) {
-            Ok(c) => c.name(),
-            Err(diesel::result::Error::NotFound) => "Not Found!".to_string(),
+            Ok(mut c) => c.category().name(),
+            Err(BudgetingErrors::CategoryNotFound) => "Not Found!".to_string(),
             _ => "Unknown".to_string(),
         }
     }
