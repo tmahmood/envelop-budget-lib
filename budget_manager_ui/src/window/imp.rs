@@ -49,9 +49,6 @@ pub struct Window {
     #[template_child]
     pub summary_table: TemplateChild<SummaryTable>,
 
-    #[template_child]
-    pub fund_overspent: TemplateChild<Button>,
-
 
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub categories: RefCell<Option<gio::ListStore>>,

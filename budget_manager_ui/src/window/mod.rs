@@ -126,32 +126,36 @@ impl Window {
             .unwrap();
 
         let expense = category.expense();
+        let expense_unsigned = expense * expense.signum();
         let _transfer_out = category.transfer_out();
-        let total_expense = fix_float(expense * expense.signum());
+        let total_expense = fix_float(expense_unsigned);
         let total_income = fix_float(category.income());
         let transfer_in = fix_float(category.transfer_in());
         let transfer_out = fix_float(_transfer_out * _transfer_out.signum());
-
         let b = category.balance();
         let balance = fix_float(b);
         let category_name = category.category().name();
-
         let heading = self.imp().transaction_title.get();
         heading.set_title(&category_name);
-
         if category_name == DEFAULT_CATEGORY || b >= category.allocated() {
-            self.imp().fund_overspent.set_sensitive(false);
+            self.imp().summary_table.imp().fund_overspent.set_sensitive(false);
         } else {
-            self.imp().fund_overspent.set_sensitive(true);
+            self.imp().summary_table.imp().fund_overspent.set_sensitive(true);
         }
-
         let summary_table = self.imp().summary_table.borrow().get();
-        if b < 0. {
+        //summary_table
+        if category_name != DEFAULT_CATEGORY && expense_unsigned >= category.allocated() {
             heading.add_css_class("error");
             summary_table.add_css_class("error");
+            let s = fix_float(expense_unsigned - category.allocated());
+            summary_table.imp().overspent_by.set_title(&s);
+            summary_table.imp().overspent_by.add_css_class("error");
+
         } else {
             heading.remove_css_class("error");
             summary_table.remove_css_class("error");
+            summary_table.imp().overspent_by.set_title("Looks good");
+            summary_table.imp().overspent_by.remove_css_class("error");
         }
         self.imp().summary_table.imp().toggle.set_label(&balance);
         let summary_data = SummaryData {
@@ -439,13 +443,6 @@ impl Window {
                 window.set_categories_list_visible_only_when_there_are_categories(categories);
             }),
         );
-
-        self.imp()
-            .fund_overspent
-            .connect_clicked(clone!(@weak self as window => move |_| {
-                // will try to allocate money to this category
-                window.imp().leaflet.navigate(adw::NavigationDirection::Back);
-            }));
 
         self.imp().summary_table.connect_closure(
             "transaction-filter-changed",

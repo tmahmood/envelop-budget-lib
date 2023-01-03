@@ -92,13 +92,6 @@
                                         <property name="action-name">win.new-transaction</property>
                                     </object>
                                 </child>
-                                <child type="end">
-                                    <object class="GtkButton" id="fund_overspent">
-                                        <property name="label" translatable="yes">Fund</property>
-                                        <property name="action-name">win.fund-transfer</property>
-                                        <property name="sensitive">False</property>
-                                    </object>
-                                </child>
                             </object>
                         </child>
                         <child>

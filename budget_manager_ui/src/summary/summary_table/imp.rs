@@ -30,7 +30,14 @@ pub struct SummaryTable {
     #[template_child]
     pub popover: TemplateChild<gtk::Popover>,
 
+    #[template_child]
+    pub fund_overspent: TemplateChild<gtk::Button>,
+
+    #[template_child]
+    pub overspent_by: TemplateChild<adw::ActionRow>,
+
     pub filter_by: RefCell<Option<TransactionType>>,
+
 }
 
 // The central trait for subclassing a GObject
