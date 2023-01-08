@@ -28,5 +28,5 @@ glib-build-tools = "0.16.0"
 
 [dependencies.gtk]
 package = "gtk4"
-version = "0.5.3"
+version = "0.5.5"
 features = ["gnome_43"]

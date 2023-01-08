@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
-    <object class="GtkAdjustment" id="amount_adjustment">
+    <object class="GtkAdjustment" id="fund_transfer_adjustment">
         <property name="upper">99999999.99</property>
         <property name="lower">0.0</property>
         <property name="step-increment">1</property>
@@ -29,7 +29,7 @@
                         <child>
                             <object class="GtkListBox">
                                 <style>
-                                    <class name="boxed-list"></class>
+                                    <class name="boxed-list"/>
                                 </style>
                                 <child>
                                     <object class="AdwActionRow" id="overspent_by">
@@ -45,11 +45,11 @@
                                         <property name="margin-start">5</property>
                                         <property name="margin-end">5</property>
                                         <style>
-                                            <class name="linked"></class>
+                                            <class name="linked"/>
                                         </style>
                                         <child>
-                                            <object class="GtkSpinButton" id="fund_amount_sb">
-                                                <property name="adjustment">amount_adjustment</property>
+                                            <object class="GtkSpinButton" id="fund_transfer_sb">
+                                                <property name="adjustment">fund_transfer_adjustment</property>
                                                 <property name="numeric">true</property>
                                             </object>
                                         </child>
@@ -71,7 +71,7 @@
                                         <property name="margin-start">5</property>
                                         <property name="margin-end">5</property>
                                         <style>
-                                            <class name="linked"></class>
+                                            <class name="linked"/>
                                         </style>
                                         <child>
                                             <object class="GtkSpinButton" id="allocation_adjustment_sb">
@@ -82,8 +82,8 @@
                                         <child>
                                             <object class="GtkButton" id="allocation_adjustment_btn">
                                                 <property name="action-name">win.allocate-adjustment</property>
-                                                <property name="label">Update</property>
-                                                <property name="tooltip-text">Update allocation to this amount</property>
+                                                <property name="label">Allocate</property>
+                                                <property name="tooltip-text">Update allocation for this Category</property>
                                             </object>
                                         </child>
                                     </object>
@@ -95,7 +95,7 @@
                         <child>
                             <object class="GtkListBox">
                                 <style>
-                                    <class name="boxed-list"></class>
+                                    <class name="boxed-list"/>
                                 </style>
                                 <child>
                                     <object class="AdwActionRow">

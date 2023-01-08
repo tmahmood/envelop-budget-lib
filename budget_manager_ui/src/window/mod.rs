@@ -15,6 +15,7 @@ use crate::category::category_row::CategoryRow;
 use crate::new_category_dialog::NewCategoryDialog;
 use crate::summary::summary_object::imp::SummaryData;
 use crate::summary::summary_object::SummaryObject;
+use crate::summary::summary_table::SummaryTable;
 use crate::{fix_float, from_gdate_to_naive_date_time};
 use adw::builders::ToastBuilder;
 use adw::prelude::*;
@@ -29,7 +30,6 @@ use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
-use crate::summary::summary_table::SummaryTable;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -54,6 +54,13 @@ impl Window {
         let c = budgeting.default_category();
         self.imp().current_category_id.replace(c.id());
         self.imp().budgeting.replace(budgeting);
+        self.imp()
+            .summary_table
+            .get()
+            .imp()
+            .fund_overspent
+            .get()
+            .set_sensitive(false);
     }
 
     fn setup_transactions(&self) {
@@ -118,7 +125,7 @@ impl Window {
         self.set_categories_list_visible_only_when_there_are_categories(&categories);
     }
 
-    pub(crate) fn setup_budget_details(&self) {
+    pub(crate) fn setup_summary_table(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let cid = self.imp().current_category_id.borrow();
         let mut category = budgeting
@@ -126,6 +133,7 @@ impl Window {
             .unwrap();
 
         let expense = category.expense();
+        let allocated = category.allocated();
         let expense_unsigned = expense * expense.signum();
         let _transfer_out = category.transfer_out();
         let total_expense = fix_float(expense_unsigned);
@@ -137,25 +145,41 @@ impl Window {
         let category_name = category.category().name();
         let heading = self.imp().transaction_title.get();
         heading.set_title(&category_name);
-        if category_name == DEFAULT_CATEGORY || b >= category.allocated() {
-            self.imp().summary_table.imp().fund_overspent.set_sensitive(false);
-        } else {
-            self.imp().summary_table.imp().fund_overspent.set_sensitive(true);
-        }
         let summary_table = self.imp().summary_table.borrow().get();
+        summary_table.imp().fund_transfer_adjustment.set_value(0.);
+        let fund_btn = summary_table.imp().fund_overspent.get();
+        if category_name == DEFAULT_CATEGORY || b >= allocated {
+            fund_btn.set_sensitive(false);
+            fund_btn.set_label("No need");
+        } else {
+            let r = { budgeting.calculate_amount_to_fund(DEFAULT_CATEGORY, &category_name, true) };
+            match r {
+                Ok(fund) => summary_table.imp().fund_transfer_adjustment.set_value(fund),
+                Err(_) => {}
+            }
+            fund_btn.set_sensitive(true);
+            fund_btn.set_label("Fund");
+        }
+        let overspent_by = summary_table.imp().overspent_by.get();
         //summary_table
-        if category_name != DEFAULT_CATEGORY && expense_unsigned >= category.allocated() {
+        if category_name != DEFAULT_CATEGORY && expense_unsigned >= allocated {
             heading.add_css_class("error");
             summary_table.add_css_class("error");
-            let s = fix_float(expense_unsigned - category.allocated());
-            summary_table.imp().overspent_by.set_title(&s);
-            summary_table.imp().overspent_by.add_css_class("error");
-
+            let s = fix_float(expense_unsigned - allocated);
+            overspent_by.set_title(&s);
+            overspent_by.set_subtitle("Overspent, allocate more money to cover");
+            overspent_by.add_css_class("error");
+            summary_table
+                .imp()
+                .allocation_adjustment
+                .set_value(expense_unsigned - allocated);
         } else {
             heading.remove_css_class("error");
             summary_table.remove_css_class("error");
-            summary_table.imp().overspent_by.set_title("Looks good");
-            summary_table.imp().overspent_by.remove_css_class("error");
+            overspent_by.set_title("Looks good");
+            overspent_by.set_subtitle("This category is under control");
+            overspent_by.remove_css_class("error");
+            summary_table.imp().allocation_adjustment.set_value(0.);
         }
         self.imp().summary_table.imp().toggle.set_label(&balance);
         let summary_data = SummaryData {
@@ -225,7 +249,7 @@ impl Window {
                     self.imp().current_category_id.replace(default);
                 }
                 self.setup_categories();
-                self.setup_budget_details();
+                self.setup_summary_table();
                 self.setup_transactions();
             }
             Err(BudgetingErrors::CategoryDeleteFailed) => {
@@ -258,7 +282,7 @@ impl Window {
         let action_fund_transfer = gio::SimpleAction::new("fund-transfer", None);
         action_fund_transfer.connect_activate(clone!(@weak self as window => move |_, _| {
             window.fund_transfer();
-            window.setup_budget_details();
+            window.setup_summary_table();
             window.setup_transactions();
         }));
         self.add_action(&action_fund_transfer);
@@ -277,10 +301,17 @@ impl Window {
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
         let category_name = category.category().name();
-
-        match budget_account.fund_from_unallocated(&category_name) {
-            Ok(_) => {}
-            Err(BudgetingErrors::AlreadyFunded) => self.show_toast("No need to fund"),
+        let v = self
+            .imp()
+            .summary_table
+            .imp()
+            .fund_transfer_adjustment
+            .value();
+        match budget_account.check_if_funding_possible(DEFAULT_CATEGORY, v, true) {
+            Ok(_) => match budget_account.transfer_fund(DEFAULT_CATEGORY, &category_name, v) {
+                Ok(_) => self.show_toast("Fund transferred successfully"),
+                Err(e) => self.show_toast(&format!("Error occurred: {:?}", e)),
+            },
             Err(BudgetingErrors::OverFundingError) => {
                 self.show_toast("You do not have enough money to fund this category")
             }
@@ -363,7 +394,7 @@ impl Window {
             t.category_id()
         };
         if self.current_category_id() == category_id {
-            self.setup_budget_details();
+            self.setup_summary_table();
             self.setup_transactions();
         }
     }
@@ -418,7 +449,7 @@ impl Window {
             Ok(category_id) => {
                 self.imp().current_category_id.replace(category_id);
                 self.setup_categories();
-                self.setup_budget_details();
+                self.setup_summary_table();
                 self.setup_transactions();
             }
             Err(e) => self.show_toast(&format!("{}", e)),

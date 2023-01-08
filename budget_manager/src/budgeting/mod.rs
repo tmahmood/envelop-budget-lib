@@ -54,7 +54,7 @@ impl Budgeting {
     }
 
     /// Transfers fund from one category to another
-    pub(crate) fn transfer_fund(
+    pub fn transfer_fund(
         &mut self,
         src: &str,
         dest: &str,
@@ -82,31 +82,66 @@ impl Budgeting {
         CategoryModel::update(self.conn(), category_id, name, amount)
     }
 
-    pub fn delete_category(
-        &mut self,
-        category_id: i32,
-    ) -> Result<(usize), BudgetingErrors> {
+    pub fn delete_category(&mut self, category_id: i32) -> Result<(usize), BudgetingErrors> {
         CategoryModel::delete(self.conn(), category_id)
     }
 
-    pub fn fund_from_unallocated(&mut self, category: &str) -> Result<(), BudgetingErrors> {
-        let mut c = self.get_category_model(category);
-        let balance = c.balance();
-        let allocated = c.allocated();
+    /// calculates the amount required to fully fund the category from unallocated balance.
+    pub fn calculate_amount_to_fund(
+        &mut self,
+        src_category: &str,
+        dest_category: &str,
+        as_much_possible: bool,
+    ) -> Result<f64, BudgetingErrors> {
+        let mut cm = self.get_category_model(dest_category);
+        let balance = cm.balance();
+        let allocated = cm.allocated();
         if balance >= allocated {
             return Err(BudgetingErrors::AlreadyFunded);
         }
-        let unallocated_balance = self.uncategorized_balance();
+        let src_balance = self.category_balance(src_category);
         let to_fund = if balance > 0. {
             allocated - balance
         } else {
             balance.abs() + allocated
         };
-        if unallocated_balance - to_fund < 0. {
+        let diff_src_to_fund = src_balance - to_fund;
+        if diff_src_to_fund < 0. {
+            if !as_much_possible {
+                return Err(BudgetingErrors::OverFundingError);
+            }
+            return Ok(to_fund + diff_src_to_fund);
+        }
+        Ok(to_fund)
+    }
+
+    pub fn check_if_funding_possible(
+        &mut self,
+        src_category: &str,
+        fund: f64,
+        as_much_possible: bool,
+    ) -> Result<f64, BudgetingErrors> {
+        let src_balance = self.category_balance(src_category);
+        let diff_src_to_fund = src_balance - fund;
+        if diff_src_to_fund <= 0. {
+            if as_much_possible && fund <= src_balance && src_balance != 0. {
+                return Ok(fund);
+            }
             return Err(BudgetingErrors::OverFundingError);
         }
+        Ok(fund)
+    }
+
+    pub fn fund_all_from_unallocated(
+        &mut self,
+        category: &str,
+        as_much_possible: bool,
+    ) -> Result<(), BudgetingErrors> {
+        let to_fund =
+            self.calculate_amount_to_fund(DEFAULT_CATEGORY, category, as_much_possible)?;
         self.transfer_fund(DEFAULT_CATEGORY, category, to_fund)
     }
+
     // creates a new category and allocates the budget
     pub fn create_category(
         &mut self,
@@ -426,18 +461,26 @@ pub mod tests {
         let mut blib = Budgeting::new();
         new_budget_using_budgeting(&mut blib);
         let _home = {
-            let home = blib.create_category("Home", 3000., true).unwrap();
+            let home_id = blib.create_category("Home", 3000., true).unwrap();
+            let mut cm = CategoryModel::load(blib.conn(), home_id).unwrap();
+            let home = cm.category();
             assert_eq!(home.allocated(), 3000.0);
             assert_eq!(blib.category_balance("Home"), 3000.0);
             home
         };
         let mut home_ops = blib.new_transaction_to_category("Home");
-        home_ops.expense(2000.).payee("someone").note("test").done();
+        home_ops
+            .expense(2000.)
+            .payee("someone")
+            .note("test")
+            .done()
+            .unwrap();
         home_ops
             .income(1000.)
             .payee("another someone")
             .note("test some")
-            .done();
+            .done()
+            .expect("Error occurred");
         assert_eq!(blib.category_balance("Home"), 2000.0);
         let mut cm = blib.get_category_model("Home");
         assert_eq!(cm.allocated(), 3000.);
@@ -457,7 +500,8 @@ pub mod tests {
             .expense(BILLS)
             .payee("someone")
             .note("test")
-            .done();
+            .done()
+            .expect("Error occurred");
         let bills_available = blib.category_balance("Bills");
         assert_eq!(bills_available, 0.0);
         assert_eq!(blib.actual_total_balance(), TRAVEL + UNUSED);
@@ -472,9 +516,10 @@ pub mod tests {
             .expense(9000.)
             .payee("someone")
             .note("test")
-            .done();
+            .done()
+            .expect("Error occurred");
         assert_eq!(
-            blib.fund_from_unallocated("Bills"),
+            blib.fund_all_from_unallocated("Bills", false),
             Err(BudgetingErrors::OverFundingError)
         );
     }
@@ -488,8 +533,45 @@ pub mod tests {
             .expense(600.)
             .payee("someone")
             .note("test")
-            .done();
-        assert_eq!(blib.fund_from_unallocated("Bills"), Ok(()));
+            .done()
+            .expect("Error occurred");
+        assert_eq!(blib.fund_all_from_unallocated("Bills", false), Ok(()));
         assert_eq!(blib.category_balance("Bills"), BILLS);
+    }
+
+    #[test]
+    pub fn funding_category_as_much_as_possible() {
+        let mut dd = DbDropper::new();
+        let mut budgeting = Budgeting::new();
+        budgeting
+            .new_budget("main", 3000.)
+            .expect("Error creating new budget");
+        budgeting.create_category("Bills", 3100., false).unwrap();
+        assert_eq!(
+            budgeting.calculate_amount_to_fund(DEFAULT_CATEGORY, "Bills", false),
+            Err(BudgetingErrors::OverFundingError)
+        );
+        assert_eq!(
+            budgeting.calculate_amount_to_fund(DEFAULT_CATEGORY, "Bills", true),
+            Ok(3000.)
+        );
+        budgeting
+            .new_transaction_to_category("Bills")
+            .expense(600.)
+            .payee("someone")
+            .note("test")
+            .done()
+            .expect("Error occurred");
+        budgeting
+            .new_transaction_to_category(DEFAULT_CATEGORY)
+            .income(3000.)
+            .payee("someone")
+            .note("test")
+            .done()
+            .expect("Error occurred");
+        assert_eq!(
+            budgeting.calculate_amount_to_fund(DEFAULT_CATEGORY, "Bills", true),
+            Ok(3700.)
+        );
     }
 }

@@ -36,6 +36,18 @@ pub struct SummaryTable {
     #[template_child]
     pub overspent_by: TemplateChild<adw::ActionRow>,
 
+    #[template_child]
+    pub fund_transfer_sb: TemplateChild<gtk::SpinButton>,
+
+    #[template_child]
+    pub fund_transfer_adjustment: TemplateChild<gtk::Adjustment>,
+
+    #[template_child]
+    pub allocation_adjustment_sb: TemplateChild<gtk::SpinButton>,
+
+    #[template_child]
+    pub allocation_adjustment: TemplateChild<gtk::Adjustment>,
+
     pub filter_by: RefCell<Option<TransactionType>>,
 
 }
