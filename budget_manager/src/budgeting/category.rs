@@ -168,10 +168,12 @@ impl<'a> CategoryModel<'a> {
 
     pub fn category(&mut self) -> Category {
         imp_db!(categories);
-        categories
+        let c = categories
             .find(self.category.id)
             .first::<Category>(self.conn)
-            .unwrap()
+            .unwrap();
+        self.category = c;
+        self.category.clone()
     }
 
 

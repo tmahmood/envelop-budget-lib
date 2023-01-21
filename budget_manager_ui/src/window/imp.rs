@@ -9,12 +9,14 @@ use gtk::{glib, Entry, Popover, ToggleButton};
 use adw::{ActionRow, ExpanderRow, Flap, Leaflet, NavigationDirection, ToastOverlay};
 use gtk::{gio, Button, Label, ListBox};
 use std::cell::RefCell;
+use adw::glib::GString;
 
 use gtk::gio::glib::once_cell::sync::OnceCell;
 use gtk::CompositeTemplate;
 
 use crate::summary::summary_table::SummaryTable;
 use budget_manager::budgeting::Budgeting;
+use crate::budget_account::budget_account_row::BudgetAccountRow;
 
 #[derive(CompositeTemplate, Default)]
 #[template(file = "../../resources/main_window.ui")]
@@ -52,17 +54,31 @@ pub struct Window {
     #[template_child]
     pub summary_table: TemplateChild<SummaryTable>,
 
+    #[template_child]
+    pub budget_account_list: TemplateChild<ListBox>,
 
+
+    pub budget_accounts: RefCell<Option<gio::ListStore>>,
     pub transactions: RefCell<Option<gio::ListStore>>,
     pub categories: RefCell<Option<gio::ListStore>>,
 
     pub settings: OnceCell<Settings>,
     pub budgeting: RefCell<Budgeting>,
     pub current_category_id: RefCell<i32>,
+    pub current_budget_account_id: RefCell<i32>,
 }
 
 #[gtk::template_callbacks]
 impl Window {
+
+    #[template_callback]
+    fn handle_budget_account_row_activated(&self, list_box: &BudgetAccountRow) {
+        let id = list_box.imp().budget_account_id_label.get().label().unwrap();
+        self.current_budget_account_id.replace(id.parse().unwrap());
+        let k: GString = list_box.property("title");
+        self.obj().set_current_budget(&k);
+        self.leaflet.navigate(NavigationDirection::Forward);
+    }
 
     #[template_callback]
     fn handle_row_activated(&self, list_box: &super::CategoryRow) {
@@ -111,6 +127,7 @@ impl ObjectImpl for Window {
         // Setup
         let obj = self.obj();
         obj.setup_budget_account();
+        obj.setup_budget_accounts_listing();
         obj.setup_categories();
         obj.setup_summary_table();
         obj.setup_transactions();

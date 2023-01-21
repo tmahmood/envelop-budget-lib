@@ -13,6 +13,7 @@ mod transaction;
 mod window;
 mod calender_button;
 mod new_category_dialog;
+mod budget_account;
 
 const APP_ID: &str = "org.tmn.budgetTracker";
 
@@ -43,4 +44,12 @@ fn from_gdate_to_naive_date_time(_d: DateTime) -> Option<NaiveDateTime> {
     NaiveDate::from_ymd_opt(_d.year(), _d.month() as u32, _d.day_of_month() as u32)
         .unwrap()
         .and_hms_opt(0, 0, 0)
+}
+
+pub fn date_time_to_string(date: NaiveDateTime) -> String {
+    date.format("%l %p on %b %-d, %Y").to_string()
+}
+
+pub fn date_to_string(date: NaiveDateTime) -> String {
+    date.format("%b %-d, %Y").to_string()
 }

@@ -234,7 +234,7 @@ impl NewTransactionDialog {
         self.entry_note.set_text(&transaction.note());
         self.transaction_date
             .imp()
-            .set_date(transaction.date_created());
+            .set_date(transaction.date_created().date());
         match TransactionType::from(transaction.transfer_type_id()) {
             TransactionType::Income => {
                 self.toggle_income.set_active(true);

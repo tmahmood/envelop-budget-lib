@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use diesel::SqliteConnection;
 use diesel::{Insertable, Queryable};
@@ -82,11 +82,23 @@ pub struct BudgetAccountModel<'a> {
     budget_account: BudgetAccount,
 }
 
+
 impl<'a> BudgetAccountModel<'a> {
     pub fn new(conn: &'a mut SqliteConnection, budget_account: BudgetAccount) -> Self {
         Self {
             conn,
             budget_account,
+        }
+    }
+
+    pub(crate) fn find_all(conn: &mut SqliteConnection) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        match budget_accounts.load::<BudgetAccount>(conn) {
+            Ok(result) => Ok(result),
+            Err(e) => {
+                println!("{e:?}");
+                Err(BudgetingErrors::UnspecifiedDatabaseError)
+            }
         }
     }
 
@@ -128,6 +140,18 @@ impl<'a> BudgetAccountModel<'a> {
             Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
         }
     }
+
+
+    pub fn budget_account(&mut self) -> BudgetAccount {
+        imp_db!(budget_accounts);
+        let b = budget_accounts
+            .find(self.budget_account.id)
+            .first::<BudgetAccount>(self.conn)
+            .unwrap();
+        self.budget_account = b;
+        self.budget_account.clone()
+    }
+
 }
 
 #[derive(Default)]

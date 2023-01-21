@@ -2,9 +2,8 @@
 <interface>
     <template class="BudgetAppWindow" parent="AdwApplicationWindow">
         <property name="title" translatable="yes">Budget Manager</property>
-        <property name="default_width">850</property>
+        <property name="default_width">980</property>
         <property name="default_height">850</property>
-
 
         <property name="content">
 
@@ -34,6 +33,19 @@
                                         <signal name="clicked" handler="navigate_forward" swapped="True"/>
                                     </object>
                                 </child>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkScrolledWindow">
+                                <property name="vexpand">True</property>
+                                <property name="max-content-width">200</property>
+                                <property name="min-content-width">200</property>
+                                <property name="child">
+                                    <object class="GtkListBox" id="budget_account_list">
+                                        <signal name="row_activated" handler="handle_budget_account_row_activated"
+                                                swapped="True"/>
+                                    </object>
+                                </property>
                             </object>
                         </child>
                     </object>

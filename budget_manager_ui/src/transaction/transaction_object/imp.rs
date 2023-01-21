@@ -9,7 +9,7 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
-use crate::fix_float;
+use crate::{date_to_string, fix_float};
 
 #[derive(Default, Debug)]
 pub struct TransactionInner {
@@ -126,7 +126,7 @@ pub fn from_transaction_to_transfer_inner(tm: &mut TransactionModel) -> Transact
         id: tm.transaction().id(),
         note: tm.transaction().note(),
         payee: tm.transaction().payee(),
-        date_created: tm.transaction().date_created_str(),
+        date_created: date_to_string(tm.transaction().date_created()),
         amount: fix_float(tm.transaction().amount()),
         only_amount: fix_float(tm.transaction().only_amount()),
         category_name: tm.category_name(),

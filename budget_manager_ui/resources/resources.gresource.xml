@@ -8,6 +8,7 @@
         <file compressed="true" preprocess="xml-stripblanks">category_row.ui</file>
         <file compressed="true" preprocess="xml-stripblanks">summary.ui</file>
         <file compressed="true" preprocess="xml-stripblanks">calendar_button.ui</file>
+        <file compressed="true" preprocess="xml-stripblanks">budget_account_row.ui</file>
     </gresource>
     <gresource prefix="/org/tmn/BudgetManager/icons/48x48/status">
         <file preprocess="xml-stripblanks" alias="transfer_in">transfer_in.svg</file>

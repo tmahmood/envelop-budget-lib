@@ -33,7 +33,12 @@ pub struct Budgeting {
     budget: Option<BudgetAccount>,
 }
 
+
 impl Budgeting {
+    // get all budget accounts
+    pub fn budget_accounts(&mut self) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
+        BudgetAccountModel::find_all(self.conn())
+    }
     /// creates a new budget and set as current budget
     pub fn new_budget(
         &mut self,
@@ -193,6 +198,10 @@ impl Budgeting {
 
     pub fn transaction_model(&mut self, transaction: Transaction) -> TransactionModel {
         TransactionModel::new(self.conn(), transaction)
+    }
+
+    pub fn budget_account_model(&mut self, budget_account: BudgetAccount) -> BudgetAccountModel {
+        BudgetAccountModel::new(self.conn(), budget_account)
     }
 
     pub fn get_category_model(&mut self, category_name: &str) -> CategoryModel {

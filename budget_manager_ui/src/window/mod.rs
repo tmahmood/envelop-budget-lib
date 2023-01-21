@@ -10,6 +10,8 @@ use std::ops::Deref;
 
 use adw::glib::{closure_local, BindingFlags, DateTime};
 
+use crate::budget_account::budget_account_object::BudgetAccountObject;
+use crate::budget_account::budget_account_row::BudgetAccountRow;
 use crate::category::category_object::CategoryObject;
 use crate::category::category_row::CategoryRow;
 use crate::new_category_dialog::NewCategoryDialog;
@@ -30,6 +32,7 @@ use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
+use budget_manager::budgeting::budget_account::BudgetAccount;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -51,9 +54,54 @@ impl Window {
             .set_current_budget("main")
             .or_else(|_| budgeting.new_budget("main", 10000.))
             .expect("Failed to get budget account");
+        self.imp().budgeting.replace(budgeting);
+    }
+
+    pub fn set_current_budget(&self, budget: &str) {
+        let r = {
+            let mut budgeting = self.imp().budgeting.borrow_mut();
+            budgeting.set_current_budget(budget)
+        };
+        match r {
+            Ok(_) => {
+                self.setup_categories();
+                self.setup_transactions();
+                self.setup_summary_table();
+            }
+            Err(e) => {
+                self.show_toast(&format!("Failed to select budget: {}", e.to_string()))
+            }
+        }
+
+    }
+
+    pub fn setup_budget_accounts_listing(&self) {
+        let mut budgeting = self.imp().budgeting.borrow_mut();
+        match budgeting.budget_accounts() {
+            Ok(result) => {
+                let model = gio::ListStore::new(BudgetAccountObject::static_type());
+                result.iter().for_each(|b| {
+                    let mut bm = budgeting.budget_account_model(b.clone());
+                    let bm_object = BudgetAccountObject::new(&mut bm);
+                    model.append(&bm_object);
+                });
+                self.imp().budget_accounts.replace(Some(model));
+                let selection_model = NoSelection::new(Some(&self.budget_accounts()));
+                self.imp().budget_account_list.bind_model(
+                    Some(&selection_model),
+                    clone!(@weak self as window => @default-panic, move |obj| {
+                        let budget_account_obj = obj.downcast_ref().expect("The object should be of type `BudgetAccountObject`.");
+                        let row = window.create_budget_account_row(budget_account_obj);
+                        row.upcast()
+                    }),
+                );
+            }
+            Err(e) => {
+                self.show_toast("Failed to load budgets");
+            }
+        };
         let c = budgeting.default_category();
         self.imp().current_category_id.replace(c.id());
-        self.imp().budgeting.replace(budgeting);
         self.imp()
             .summary_table
             .get()
@@ -65,6 +113,7 @@ impl Window {
 
     fn setup_transactions(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
+        println!("{}", budgeting.current_budget().filed_as());
         let model = gio::ListStore::new(TransactionObject::static_type());
         let cid = self.imp().current_category_id.borrow();
         let mut category = budgeting
@@ -196,6 +245,10 @@ impl Window {
         self.imp().transactions.borrow().clone().unwrap()
     }
 
+    pub(crate) fn budget_accounts(&self) -> gio::ListStore {
+        self.imp().budget_accounts.borrow().clone().unwrap()
+    }
+
     fn categories(&self) -> gio::ListStore {
         self.imp().categories.borrow().clone().unwrap()
     }
@@ -232,6 +285,21 @@ impl Window {
             }),
         );
         c
+    }
+
+    fn create_budget_account_row(
+        &self,
+        budget_account_object: &BudgetAccountObject,
+    ) -> BudgetAccountRow {
+        let b = BudgetAccountRow::new().bind_objects(budget_account_object);
+        // b.connect_closure(
+        //     "budget-account-selected-for-edit",
+        //     false,
+        //     closure_local!(@watch self as window => move |_: &CategoryRow, category_id: i32| {
+        //         window.category_form(Some(category_id));
+        //     }),
+        // );
+        b
     }
 
     fn delete_category(&self, category_id: i32) {
@@ -364,9 +432,8 @@ impl Window {
         _is_income: Variant,
         _date: DateTime,
         _category_name: Variant,
-        _edit_id: Option<i32>
+        _edit_id: Option<i32>,
     ) {
-
         let payee = _payee.get::<String>().unwrap();
         let note = _note.get::<String>().unwrap();
         let amount = _amount.get::<f64>().unwrap();
@@ -460,7 +527,6 @@ impl Window {
     }
 
     fn setup_callbacks(&self) {
-
         self.transactions().connect_items_changed(
             clone!(@weak self as window => move |transactions, _, _, _| {
                 window.set_transactions_list_visible_only_when_there_are_transactions(transactions);

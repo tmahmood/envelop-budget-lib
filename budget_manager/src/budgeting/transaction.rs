@@ -150,8 +150,8 @@ impl Transaction {
         self.id
     }
 
-    pub fn date_created(&self) -> NaiveDate {
-        self.date_created.date()
+    pub fn date_created(&self) -> NaiveDateTime {
+        self.date_created
     }
 
     pub fn date_created_str(&self) -> String {
