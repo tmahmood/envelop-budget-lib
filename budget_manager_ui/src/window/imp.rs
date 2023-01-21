@@ -38,7 +38,10 @@ pub struct Window {
     pub back_button: TemplateChild<Button>,
 
     #[template_child]
-    pub display_budget_accounts: TemplateChild<ToggleButton>,
+    pub back_button_category: TemplateChild<Button>,
+
+    #[template_child]
+    pub forward_button_category: TemplateChild<Button>,
 
     #[template_child]
     pub tgl_btn_new_category: TemplateChild<ToggleButton>,
@@ -69,6 +72,17 @@ impl Window {
         self.obj().setup_summary_table();
         self.leaflet.navigate(NavigationDirection::Forward);
     }
+
+    #[template_callback]
+    fn navigate_forward(&self, _b: &Button) {
+        self.leaflet.navigate(adw::NavigationDirection::Forward);
+    }
+
+    #[template_callback]
+    fn navigate_back(&self, _b: &Button) {
+        self.leaflet.navigate(adw::NavigationDirection::Back);
+    }
+
 }
 
 

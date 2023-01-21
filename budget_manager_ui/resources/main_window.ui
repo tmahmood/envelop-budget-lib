@@ -4,11 +4,53 @@
         <property name="title" translatable="yes">Budget Manager</property>
         <property name="default_width">850</property>
         <property name="default_height">850</property>
+
+
         <property name="content">
+
             <object class="AdwLeaflet" id="leaflet">
                 <property name="can-navigate-back">True</property>
+
                 <child>
                     <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <child>
+                            <object class="AdwHeaderBar">
+                                <property name="title-widget">
+                                    <object class="AdwWindowTitle">
+                                        <property name="title">Budget Accounts</property>
+                                    </object>
+                                </property>
+                                <binding name="show-end-title-buttons">
+                                    <lookup name="folded">leaflet</lookup>
+                                </binding>
+                                <child type="end">
+                                    <object class="GtkButton" id="forward_button_category">
+                                        <binding name="visible">
+                                            <lookup name="folded">leaflet</lookup>
+                                        </binding>
+                                        <property name="icon-name">go-next-symbolic</property>
+                                        <property name="tooltip-text" translatable="yes">Transactions</property>
+                                        <signal name="clicked" handler="navigate_forward" swapped="True"/>
+                                    </object>
+                                </child>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+
+                <child>
+                    <object class="AdwLeafletPage">
+                        <property name="navigatable">False</property>
+                        <property name="child">
+                            <object class="GtkSeparator"/>
+                        </property>
+                    </object>
+                </child>
+
+
+                <child>
+                    <object class="GtkBox" id="stack">
                         <property name="orientation">vertical</property>
                         <child>
                             <object class="AdwHeaderBar">
@@ -21,9 +63,13 @@
                                     <lookup name="folded">leaflet</lookup>
                                 </binding>
                                 <child type="start">
-                                    <object class="GtkToggleButton" id="display_budget_accounts">
-                                        <property name="icon-name">bank-symbolic</property>
-                                        <property name="tooltip-text" translatable="yes">Accounts</property>
+                                    <object class="GtkButton" id="back_button_category">
+                                        <signal name="clicked" handler="navigate_back" swapped="True"/>
+                                        <binding name="visible">
+                                            <lookup name="folded">leaflet</lookup>
+                                        </binding>
+                                        <property name="icon-name">go-previous-symbolic</property>
+                                        <property name="tooltip-text" translatable="yes">Categories</property>
                                     </object>
                                 </child>
                                 <child type="start">
@@ -38,8 +84,7 @@
                         <child>
                             <object class="GtkScrolledWindow">
                                 <property name="vexpand">True</property>
-                                <property name="min-content-height">360</property>
-                                <property name="max-content-width">300</property>
+                                <property name="max-content-width">280</property>
                                 <property name="min-content-width">280</property>
                                 <property name="child">
                                     <object class="GtkListBox" id="categories_list">
@@ -51,14 +96,16 @@
                         </child>
                     </object>
                 </child>
+
                 <child>
                     <object class="AdwLeafletPage">
                         <property name="navigatable">False</property>
                         <property name="child">
-                            <object class="GtkSeparator" />
+                            <object class="GtkSeparator"/>
                         </property>
                     </object>
                 </child>
+
                 <child>
                     <object class="GtkBox">
                         <property name="vexpand">True</property>
@@ -82,6 +129,7 @@
                                         </binding>
                                         <property name="icon-name">go-previous-symbolic</property>
                                         <property name="tooltip-text" translatable="yes">Back</property>
+                                        <signal name="clicked" handler="navigate_back" swapped="True"/>
                                     </object>
                                 </child>
                                 <child type="start">
@@ -94,10 +142,13 @@
                                 </child>
                             </object>
                         </child>
+
                         <child>
                             <object class="AdwToastOverlay" id="toast_overlay">
                                 <property name="child">
                                     <object class="GtkScrolledWindow">
+                                        <property name="max-content-width">380</property>
+                                        <property name="min-content-width">380</property>
                                         <property name="margin-top">4</property>
                                         <property name="margin-bottom">12</property>
                                         <property name="margin-start">12</property>

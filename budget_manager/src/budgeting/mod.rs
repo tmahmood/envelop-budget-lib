@@ -1,4 +1,6 @@
-use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder, NewBudgetAccount};
+use crate::budgeting::budget_account::{
+    BudgetAccount, BudgetAccountBuilder, BudgetAccountModel, NewBudgetAccount,
+};
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
 use crate::budgeting::transaction::{
     Transaction, TransactionBuilder, TransactionModel, TransactionType,
@@ -10,9 +12,8 @@ use budgeting_errors::BudgetingErrors::{
 };
 use diesel::connection::BoxableConnection;
 use diesel::dsl::sum;
-use diesel::{QueryResult, SqliteConnection};
+use diesel::{QueryDsl, QueryResult, RunQueryDsl, SqliteConnection};
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 pub mod budget_account;
@@ -27,15 +28,45 @@ mod builder {
     }
 }
 
-pub mod prelude {
-    use super::budget_account::*;
-    use super::category::*;
-    use super::transaction::*;
-}
-
 pub struct Budgeting {
     conn: Rc<SqliteConnection>,
     budget: Option<BudgetAccount>,
+}
+
+impl Budgeting {
+    /// creates a new budget and set as current budget
+    pub fn new_budget(
+        &mut self,
+        filed_as: &str,
+        amount: f64,
+    ) -> Result<BudgetAccount, BudgetingErrors> {
+        let budget_account = self.find_budget(filed_as);
+        if budget_account.is_ok() {
+            return Err(FailedToCreateBudget(filed_as.to_string()));
+        }
+        let b = BudgetAccountBuilder::new(self.conn(), filed_as).build();
+        self.budget = Some(b.clone());
+        self.new_transaction_to_category(DEFAULT_CATEGORY)
+            .income(amount)
+            .payee("Self")
+            .note("Initial Balance")
+            .done()?;
+        Ok(b)
+    }
+
+    /// switch to given budget account
+    pub(crate) fn switch_budget_account(
+        &mut self,
+        budget_account: &str,
+    ) -> Result<(), BudgetingErrors> {
+        match BudgetAccountModel::load_by_name(self.conn(), budget_account) {
+            Ok(e) => {
+                self.budget = Some(e);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
 }
 
 impl Default for Budgeting {
@@ -50,7 +81,7 @@ impl Budgeting {
     pub fn new_transaction_to_category<'b>(&'b mut self, category: &'b str) -> TransactionBuilder {
         let b = self.current_budget();
         let mut _category = self.find_category(category).unwrap();
-        TransactionBuilder::new(self.conn(), _category.id())
+        TransactionBuilder::new(self.conn(), b.id(), _category.id())
     }
 
     /// Transfers fund from one category to another
@@ -185,25 +216,20 @@ impl Budgeting {
 
     pub fn find_category(&mut self, category_name: &str) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
-        imp_db!(budget_accounts);
-        let budget = { self.current_budget() };
         let conn = self.conn();
-        let result: QueryResult<Category> = Category::belonging_to(&budget)
-            .filter(name.eq(category_name))
-            .first(conn);
+        let result: QueryResult<Category> = categories.filter(name.eq(category_name)).first(conn);
         result.map_err(|e| CategoryNotFound)
     }
 
     pub fn category_balance(&mut self, category: &str) -> f64 {
         imp_db!(categories);
-        imp_db!(budget_accounts);
         self.get_category_model(category).balance()
     }
 
-    pub fn find_budget(&mut self, filed_as: &str) -> QueryResult<BudgetAccount> {
+    pub fn find_budget(&mut self, _filed_as: &str) -> QueryResult<BudgetAccount> {
         imp_db!(budget_accounts);
         let budget_account: QueryResult<BudgetAccount> = budget_accounts
-            .filter(filed_as.eq(filed_as))
+            .filter(filed_as.eq(_filed_as))
             .first(self.conn());
         budget_account
     }
@@ -216,7 +242,7 @@ impl Budgeting {
     pub fn set_current_budget(&mut self, filed_as: &str) -> Result<BudgetAccount, BudgetingErrors> {
         let b = self.find_budget(filed_as);
         if b.is_err() {
-            return Err(BudgetAccountNotFound(filed_as.to_string()));
+            return Err(BudgetAccountNotFound);
         }
         let b = b.unwrap();
         self.budget = Some(b.clone());
@@ -225,46 +251,21 @@ impl Budgeting {
 
     pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
         let id = self.current_budget().id();
-        CategoryBuilder::new(self.conn(), id, category_name)
-    }
-
-    pub fn new_budget(
-        &mut self,
-        filed_as: &str,
-        amount: f64,
-    ) -> Result<BudgetAccount, BudgetingErrors> {
-        let budget_account = self.find_budget(filed_as);
-        if budget_account.is_ok() {
-            return Err(FailedToCreateBudget(filed_as.to_string()));
-        }
-        let b = BudgetAccountBuilder::new(self.conn(), "main").build();
-        self.budget = Some(b.clone());
-        // create the default category
-        self.category_builder(DEFAULT_CATEGORY)
-            .allocated(0.)
-            .done()?;
-        self.new_transaction_to_category(DEFAULT_CATEGORY)
-            .income(amount)
-            .payee("Self")
-            .note("Initial Balance")
-            .done()?;
-        Ok(b)
+        CategoryBuilder::new(self.conn(), category_name)
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category
     /// `uncategorized` method can be used
     pub fn all_categories(&mut self) -> Vec<Category> {
         imp_db!(categories);
-        Category::belonging_to(&self.current_budget())
-            .load::<Category>(self.conn())
-            .unwrap()
+        categories.load::<Category>(self.conn()).unwrap()
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category
     /// `uncategorized` method can be used
     pub fn categories(&mut self) -> Vec<Category> {
         imp_db!(categories);
-        Category::belonging_to(&self.current_budget())
+        categories
             .filter(name.ne(DEFAULT_CATEGORY))
             .load::<Category>(self.conn())
             .unwrap()
@@ -273,7 +274,6 @@ impl Budgeting {
     /// returns all the category except the unallocated category. To get the unallocated category
     /// `uncategorized` method can be used
     pub fn total_category_balance(&mut self) -> f64 {
-        imp_db!(transactions);
         self.categories()
             .iter()
             .map(|v| CategoryModel::new(self.conn(), v.clone()).balance())
@@ -282,17 +282,16 @@ impl Budgeting {
 
     pub fn total_allocated(&mut self) -> f64 {
         imp_db!(categories);
-        let result_option: QueryResult<Option<f64>> =
-            Category::belonging_to(&self.current_budget())
-                .select(sum(allocated))
-                .filter(name.ne(DEFAULT_CATEGORY))
-                .first::<Option<f64>>(self.conn());
+        let result_option: QueryResult<Option<f64>> = categories
+            .select(sum(allocated))
+            .filter(name.ne(DEFAULT_CATEGORY))
+            .first::<Option<f64>>(self.conn());
         return_sum!(result_option)
     }
 
     pub fn default_category(&mut self) -> Category {
         imp_db!(categories);
-        Category::belonging_to(&self.current_budget())
+        categories
             .filter(name.eq(DEFAULT_CATEGORY))
             .first::<Category>(self.conn())
             .unwrap()
@@ -302,8 +301,10 @@ impl Budgeting {
     /// sum of all the category balances + unallocated balance
     /// unallocated balance would be balance unused + all the transactions in unallocated category
     pub fn actual_total_balance(&mut self) -> f64 {
+        let bid = self.current_budget().id();
         imp_db!(transactions);
         let result = transactions
+            .filter(budget_account_id.eq(bid))
             .select(sum(amount))
             .first::<Option<f64>>(self.conn());
         return_sum!(result)
@@ -312,9 +313,12 @@ impl Budgeting {
     /// returns the total unallocated balance
     pub fn uncategorized_balance(&mut self) -> f64 {
         let c = self.default_category();
+        let bid = self.current_budget().id();
         imp_db!(transactions);
-        let result_option = Transaction::belonging_to(&c)
+        let result_option = transactions
             .select(sum(amount))
+            .filter(category_id.eq(c.id()))
+            .filter(budget_account_id.eq(bid))
             .first::<Option<f64>>(self.conn());
         return_sum!(result_option)
     }
@@ -332,6 +336,7 @@ impl Budgeting {
         let f = transaction_type_id.eq(i32::from(filter_opt));
         let result_option = transactions
             .select(sum(amount))
+            .filter(budget_account_id.eq(self.current_budget().id()))
             .filter(f)
             .first::<Option<f64>>(self.conn());
         return_sum!(result_option)
@@ -339,7 +344,10 @@ impl Budgeting {
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
         imp_db!(transactions);
-        transactions.load::<Transaction>(self.conn()).unwrap()
+        transactions
+            .filter(budget_account_id.eq(self.current_budget().id()))
+            .load::<Transaction>(self.conn())
+            .unwrap()
     }
 
     pub(crate) fn conn(&mut self) -> &mut SqliteConnection {
@@ -365,6 +373,22 @@ pub mod tests {
     use diesel::prelude::*;
 
     #[test]
+    fn managing_multiple_budget_accounts() {
+        let mut dd = DbDropper::new();
+        let mut blib = Budgeting::new();
+
+        blib.new_budget("savings", 10000.).unwrap();
+        blib.new_budget("wallet", 5000.).unwrap();
+
+        assert_eq!(blib.uncategorized_balance(), 5000.);
+        assert_eq!(blib.actual_total_balance(), 5000.);
+
+        blib.switch_budget_account("savings").unwrap();
+        assert_eq!(blib.uncategorized_balance(), 10000.);
+        assert_eq!(blib.actual_total_balance(), 10000.);
+    }
+
+    #[test]
     fn initial_budget_account_details() {
         let mut dd = DbDropper::new();
         let mut blib = Budgeting::new();
@@ -379,13 +403,21 @@ pub mod tests {
         let mut blib = Budgeting::new();
         blib.new_budget("main", 10000.)
             .expect("Failed to create new budget");
-        blib.create_category("Bills", BILLS, true)
+        blib.new_budget("wallet", 7000.)
+            .expect("Failed to create new budget");
+        // wallet is the selected budget
+        blib.create_category("Bills", BILLS - 1000., true)
             .expect("Failed to create category");
-        blib.create_category("Travel", TRAVEL, true)
+        blib.create_category("Travel", TRAVEL - 1000., true)
             .expect("Failed to create category");
-        let v = blib.get_category_model(DEFAULT_CATEGORY).transactions();
-        println!("{:#?}", v);
-        assert_eq!(blib.uncategorized_balance(), 5000.);
+        assert_eq!(blib.uncategorized_balance(), 4000.);
+
+        assert!(blib.switch_budget_account("main").is_ok());
+        assert!(blib.transfer_fund(DEFAULT_CATEGORY, "Bills", 1000.).is_ok());
+        assert!(blib.transfer_fund(DEFAULT_CATEGORY, "Travel", 1000.).is_ok());
+        assert_eq!(blib.uncategorized_balance(), 8000.);
+
+
     }
 
     #[test]
@@ -417,10 +449,23 @@ pub mod tests {
         let mut blib = Budgeting::new();
         new_budget_using_budgeting(&mut blib);
         let mut def = blib.new_transaction_to_category(DEFAULT_CATEGORY);
-        def.expense(1000.).payee("Some").note("Other").done();
-        def.income(5000.).payee("Some").note("Other").done();
+        def.expense(1000.)
+            .payee("Some")
+            .note("Other")
+            .done()
+            .unwrap();
+        def.income(5000.)
+            .payee("Some")
+            .note("Other")
+            .done()
+            .unwrap();
         imp_db!(budget_accounts);
-        assert_eq!(blib.category_balance(DEFAULT_CATEGORY), -1000. + 10000.)
+        assert_eq!(blib.category_balance(DEFAULT_CATEGORY), -1000. + 10000.);
+        assert_eq!(
+            blib.category_balance("Bills"),
+            1000.
+        );
+
     }
 
     #[test]

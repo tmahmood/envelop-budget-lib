@@ -27,7 +27,7 @@
                                 swapped="True"/>
                         <property name="icon-name">edit-symbolic</property>
                         <property name="tooltip-text" translatable="yes">Edit Category</property>
-                        
+
                     </object>
                 </child>
             </object>

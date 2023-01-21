@@ -13,7 +13,6 @@ diesel::table! {
         id -> Integer,
         name -> Text,
         allocated -> Double,
-        budget_account_id -> Integer,
     }
 }
 
@@ -34,10 +33,12 @@ diesel::table! {
         category_id -> Integer,
         income -> Bool,
         transaction_type_id -> Integer,
+        transfer_category_id -> Nullable<Integer>,
+        budget_account_id -> Integer,
     }
 }
 
-diesel::joinable!(categories -> budget_accounts (budget_account_id));
+diesel::joinable!(transactions -> budget_accounts (budget_account_id));
 diesel::joinable!(transactions -> categories (category_id));
 diesel::joinable!(transactions -> transaction_types (transaction_type_id));
 

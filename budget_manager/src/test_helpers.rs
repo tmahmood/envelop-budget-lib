@@ -1,7 +1,7 @@
-use diesel::{RunQueryDsl, SqliteConnection};
+use diesel::{RunQueryDsl, SqliteConnection, TextExpressionMethods};
 use rand::Rng;
 use crate::budgeting::Budgeting;
-use crate::establish_connection;
+use crate::{DEFAULT_CATEGORY, establish_connection};
 use crate::tests::{BILLS, TRAVEL};
 
 pub fn generate_random_str(length: usize) -> String {
@@ -44,6 +44,7 @@ pub fn clear_database() {
     num_deleted += {
         use crate::schema::categories::dsl::*;
         diesel::delete(categories)
+            .filter(name.not_like(DEFAULT_CATEGORY))
             .execute(&mut conn)
             .expect("Error deleting transaction categories")
     };

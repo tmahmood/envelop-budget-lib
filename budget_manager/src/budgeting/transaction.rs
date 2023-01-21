@@ -71,6 +71,8 @@ pub struct Transaction {
     #[deprecated]
     income: bool,
     transfer_type_id: i32,
+    transfer_category_id: Option<i32>,
+    budget_account_id: i32,
 }
 
 impl Transaction {
@@ -80,6 +82,7 @@ impl Transaction {
         amount: f64,
         category_id: i32,
         date_created: NaiveDateTime,
+        budget_account_id: i32
     ) -> Transaction {
         Transaction {
             id: 0,
@@ -90,8 +93,12 @@ impl Transaction {
             date_created,
             category_id,
             transfer_type_id: 1,
+            transfer_category_id: None,
+            budget_account_id,
         }
     }
+
+
 
     pub fn category_id(&self) -> i32 {
         self.category_id
@@ -166,6 +173,22 @@ impl Transaction {
     pub fn set_transfer_type_id(&mut self, transfer_type_id: i32) {
         self.transfer_type_id = transfer_type_id;
     }
+
+    pub fn transfer_category_id(&self) -> Option<i32> {
+        self.transfer_category_id
+    }
+    pub fn budget_account_id(&self) -> i32 {
+        self.budget_account_id
+    }
+
+
+    pub fn set_transfer_category_id(&mut self, transfer_category_id: Option<i32>) {
+        self.transfer_category_id = transfer_category_id;
+    }
+
+    pub fn set_budget_account_id(&mut self, budget_account_id: i32) {
+        self.budget_account_id = budget_account_id;
+    }
 }
 
 pub struct TransactionModel<'a> {
@@ -201,7 +224,7 @@ impl<'a> TransactionModel<'a> {
     }
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, Debug)]
 #[diesel(table_name = transactions)]
 pub struct NewTransaction<'a> {
     pub note: &'a str,
@@ -211,8 +234,19 @@ pub struct NewTransaction<'a> {
     pub category_id: i32,
     pub income: bool,
     pub transaction_type_id: i32,
+    pub transfer_category_id: Option<i32>,
+    pub budget_account_id: i32,
 }
 
+#[derive(AsChangeset)]
+#[diesel(table_name = transactions)]
+pub struct TransactionForm {
+    pub note: Option<String>,
+    pub payee: Option<String>,
+    pub date_created: Option<NaiveDateTime>,
+    pub amount: Option<f64>,
+
+}
 pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
     payee: Option<&'a str>,
@@ -221,11 +255,13 @@ pub struct TransactionBuilder<'a> {
     date_created: Option<NaiveDateTime>,
     transaction_type: TransactionType,
     category_id: i32,
+    transfer_category_id: Option<i32>,
+    budget_account_id: i32,
     conn: &'a mut SqliteConnection,
 }
 
 impl<'a> TransactionBuilder<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, category_id: i32) -> Self {
+    pub fn new(conn: &'a mut SqliteConnection, budget_account_id: i32, category_id: i32) -> Self {
         TransactionBuilder {
             amount: None,
             payee: None,
@@ -234,6 +270,8 @@ impl<'a> TransactionBuilder<'a> {
             date_created: None,
             transaction_type: TransactionType::Expense,
             category_id,
+            transfer_category_id: None,
+            budget_account_id,
             conn,
         }
     }
@@ -305,6 +343,8 @@ impl<'a> TransactionBuilder<'a> {
             amount: signed_amount,
             category_id: self.category_id,
             transaction_type_id: i32::from(self.transaction_type.clone()),
+            transfer_category_id: None,
+            budget_account_id: self.budget_account_id,
         };
         imp_db!(transactions);
         diesel::insert_into(transactions::table)

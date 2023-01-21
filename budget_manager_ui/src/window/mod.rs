@@ -49,7 +49,7 @@ impl Window {
         let mut budgeting = Budgeting::new();
         budgeting
             .set_current_budget("main")
-            .or_else(|_| budgeting.new_budget("main", 0.))
+            .or_else(|_| budgeting.new_budget("main", 10000.))
             .expect("Failed to get budget account");
         let c = budgeting.default_category();
         self.imp().current_category_id.replace(c.id());
@@ -347,7 +347,8 @@ impl Window {
                         _amount,
                         _is_income,
                         _date,
-                        _category_name
+                        _category_name,
+                        edit_id
                     );
             }),
         );
@@ -363,7 +364,9 @@ impl Window {
         _is_income: Variant,
         _date: DateTime,
         _category_name: Variant,
+        _edit_id: Option<i32>
     ) {
+
         let payee = _payee.get::<String>().unwrap();
         let note = _note.get::<String>().unwrap();
         let amount = _amount.get::<f64>().unwrap();
@@ -457,11 +460,6 @@ impl Window {
     }
 
     fn setup_callbacks(&self) {
-        self.imp()
-            .back_button
-            .connect_clicked(clone!(@weak self as window => move |_| {
-                window.imp().leaflet.navigate(adw::NavigationDirection::Back);
-            }));
 
         self.transactions().connect_items_changed(
             clone!(@weak self as window => move |transactions, _, _, _| {

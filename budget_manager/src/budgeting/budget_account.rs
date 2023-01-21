@@ -1,22 +1,16 @@
-use crate::budgeting::budgeting_errors::BudgetingErrors::{CategoryAlreadyExists, CategoryNotFound, CategoryUpdateFailed};
-use crate::schema::budget_accounts;
 use chrono::NaiveDateTime;
-use diesel::backend::Backend;
-use diesel::dsl::sum;
 use diesel::prelude::*;
-use diesel::sqlite::Sqlite;
 use diesel::SqliteConnection;
 use diesel::{Insertable, Queryable};
-use log::debug;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
-use std::collections::btree_map::BTreeMap;
-use std::hash::Hash;
+use crate::schema::budget_accounts;
 
-use crate::{current_date};
+use crate::budgeting::budgeting_errors::BudgetingErrors;
+use crate::current_date;
 
 /// Budget is used to store all the transaction categories and store their details in a file
-#[derive(Default, Serialize, Deserialize, Queryable, Debug, Identifiable, Clone)]
+#[derive(Default, Serialize, Deserialize, Queryable, Debug, Clone)]
 pub struct BudgetAccount {
     id: i32,
     filed_as: String,
@@ -45,7 +39,6 @@ impl<'a> BudgetAccountBuilder<'a> {
 
     pub fn build(&mut self) -> BudgetAccount {
         let conn = self.conn.borrow_mut();
-        imp_db!(budget_accounts);
         let new_budget = NewBudgetAccount {
             filed_as: &self.filed_as,
             date_created: self.date_created.unwrap_or_else(current_date),
@@ -67,7 +60,6 @@ pub struct NewBudgetAccount<'a> {
 }
 
 impl BudgetAccount {
-
     pub fn date_created(&self) -> NaiveDateTime {
         self.date_created
     }
@@ -82,6 +74,59 @@ impl BudgetAccount {
 
     pub fn filed_as(&self) -> String {
         self.filed_as.to_string()
+    }
+}
+
+pub struct BudgetAccountModel<'a> {
+    conn: &'a mut SqliteConnection,
+    budget_account: BudgetAccount,
+}
+
+impl<'a> BudgetAccountModel<'a> {
+    pub fn new(conn: &'a mut SqliteConnection, budget_account: BudgetAccount) -> Self {
+        Self {
+            conn,
+            budget_account,
+        }
+    }
+
+    pub fn load(
+        conn: &mut SqliteConnection,
+        bid: i32,
+    ) -> Result<BudgetAccountModel, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        match budget_accounts.find(bid).first::<BudgetAccount>(conn) {
+            Ok(c) => Ok(BudgetAccountModel::new(conn, c)),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+        }
+    }
+
+    pub fn load_by_id(
+        conn: &mut SqliteConnection,
+        bid: i32,
+    ) -> Result<BudgetAccount, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        match budget_accounts.find(bid).first::<BudgetAccount>(conn) {
+            Ok(c) => Ok(c),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+        }
+    }
+
+    pub fn load_by_name(
+        conn: &mut SqliteConnection,
+        budget_account: &str,
+    ) -> Result<BudgetAccount, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        match budget_accounts
+            .filter(filed_as.eq(budget_account))
+            .first::<BudgetAccount>(conn)
+        {
+            Ok(c) => Ok(c),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+        }
     }
 }
 

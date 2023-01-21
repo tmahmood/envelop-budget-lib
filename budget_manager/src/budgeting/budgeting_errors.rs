@@ -10,8 +10,8 @@ pub enum BudgetingErrors {
     CategoryUpdateFailed,
     #[error("Failed to delete category")]
     CategoryDeleteFailed,
-    #[error("Budget Account not found: {0}")]
-    BudgetAccountNotFound(String),
+    #[error("Budget Account not found")]
+    BudgetAccountNotFound,
     #[error("Failed to create budget: {0}")]
     FailedToCreateBudget(String),
     #[error("Failed to create category: {0}")]

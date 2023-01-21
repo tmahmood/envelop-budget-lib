@@ -19,16 +19,13 @@ use serde::{Deserialize, Serialize};
     Default,
     Clone,
     Queryable,
-    Associations,
     Identifiable,
 )]
-#[diesel(belongs_to(BudgetAccount))]
 #[diesel(table_name = categories)]
 pub struct Category {
     id: i32,
     name: String,
     allocated: f64,
-    budget_account_id: i32,
 }
 
 #[derive(Insertable)]
@@ -36,7 +33,6 @@ pub struct Category {
 pub struct NewTransactionCategory<'a> {
     name: &'a str,
     allocated: f64,
-    budget_account_id: i32,
 }
 
 #[derive(AsChangeset)]
@@ -51,7 +47,6 @@ pub struct CategoryForm {
 pub struct CategoryBuilder<'a> {
     name: String,
     allocated: f64,
-    budget_account_id: i32,
     conn: &'a mut SqliteConnection,
 }
 
@@ -68,10 +63,6 @@ impl Category {
         self.allocated
     }
 
-    pub fn budget_account_id(&self) -> i32 {
-        self.budget_account_id
-    }
-
     pub fn id(&self) -> i32 {
         self.id
     }
@@ -86,17 +77,13 @@ impl Category {
     pub fn set_allocated(&mut self, allocated: f64) {
         self.allocated = allocated;
     }
-    pub fn set_budget_account_id(&mut self, budget_account_id: i32) {
-        self.budget_account_id = budget_account_id;
-    }
 }
 
 impl<'a> CategoryBuilder<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, budget_account_id: i32, name: &str) -> Self {
+    pub fn new(conn: &'a mut SqliteConnection, name: &str) -> Self {
         Self {
             name: name.to_string(),
             allocated: 0.0,
-            budget_account_id,
             conn,
         }
     }
@@ -111,7 +98,6 @@ impl<'a> CategoryBuilder<'a> {
         let mut t = NewTransactionCategory {
             name: self.name.as_str(),
             allocated: self.allocated,
-            budget_account_id: self.budget_account_id,
         };
         imp_db!(categories);
         let r = diesel::insert_into(categories::table)
