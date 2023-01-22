@@ -113,9 +113,9 @@ impl Window {
 
     fn setup_transactions(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
-        println!("{}", budgeting.current_budget().filed_as());
         let model = gio::ListStore::new(TransactionObject::static_type());
         let cid = self.imp().current_category_id.borrow();
+        let bid = budgeting.current_budget().id();
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
@@ -177,6 +177,7 @@ impl Window {
     pub(crate) fn setup_summary_table(&self) {
         let mut budgeting = self.imp().budgeting.borrow_mut();
         let cid = self.imp().current_category_id.borrow();
+        let bid = budgeting.current_budget().id();
         let mut category = budgeting
             .get_category_model_by_id(cid.deref().clone())
             .unwrap();
@@ -189,7 +190,7 @@ impl Window {
         let total_income = fix_float(category.income());
         let transfer_in = fix_float(category.transfer_in());
         let transfer_out = fix_float(_transfer_out * _transfer_out.signum());
-        let b = category.balance();
+        let b = category.balance(bid);
         let balance = fix_float(b);
         let category_name = category.category().name();
         let heading = self.imp().transaction_title.get();

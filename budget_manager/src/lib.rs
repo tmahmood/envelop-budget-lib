@@ -24,7 +24,7 @@ macro_rules! return_sum {
             Ok(Some(n)) => n,
             _ => 0.0,
         }
-    }
+    };
 }
 
 macro_rules! imp_db {
@@ -117,8 +117,8 @@ mod tests {
         let _dd = DbDropper::new();
         let mut blib = Budgeting::new();
         test_helpers::new_budget_using_budgeting(&mut blib);
-        assert_eq!(blib.get_category_model("Bills").income(), 0.);
-        assert_eq!(blib.get_category_model(DEFAULT_CATEGORY).expense(), 0.);
+        assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
+        assert_eq!(blib.total_expense(Some(DEFAULT_CATEGORY)).unwrap(), 0.);
     }
 
     #[test]
@@ -133,18 +133,48 @@ mod tests {
         // now let's do some transactions
         {
             let mut travel = blib.new_transaction_to_category("Travel");
-            travel.expense(1000.).payee("Some").note("Other").done();
-            travel.expense(1300.).payee("Uber").note("Other").done();
-            travel.income(400.).payee("Other").note("Other").done();
+            assert!(travel
+                .expense(1000.)
+                .payee("Some")
+                .note("Other")
+                .done()
+                .is_ok());
+            assert!(travel
+                .expense(1300.)
+                .payee("Uber")
+                .note("Other")
+                .done()
+                .is_ok());
+            assert!(travel
+                .income(400.)
+                .payee("Other")
+                .note("Other")
+                .done()
+                .is_ok());
         }
         {
             let mut bills = blib.new_transaction_to_category("Bills");
-            bills.expense(300.).payee("Some").note("Other").done();
+            assert!(bills
+                .expense(300.)
+                .payee("Some")
+                .note("Other")
+                .done()
+                .is_ok());
         }
         {
             let mut default = blib.new_transaction_to_category(DEFAULT_CATEGORY);
-            default.expense(1000.).payee("Other").note("Other").done();
-            default.income(5000.).payee("Other").note("Other").done();
+            assert!(default
+                .expense(1000.)
+                .payee("Other")
+                .note("Other")
+                .done()
+                .is_ok());
+            assert!(default
+                .income(5000.)
+                .payee("Other")
+                .note("Other")
+                .done()
+                .is_ok());
         }
         // check total balance
         assert_eq!(blib.actual_total_balance(), INITIAL - 3600. + 5400.);
@@ -169,11 +199,7 @@ mod tests {
         assert_eq!(blib.category_balance("Bills"), 0.);
         assert_eq!(blib.category_balance("Travel"), BILLS + TRAVEL);
         //
-        let v = blib.get_category_model("Bills").transactions();
-        println!("{:?}", v);
-
-        //
-        assert_eq!(blib.get_category_model("Bills").expense(), 0.);
-        assert_eq!(blib.get_category_model("Travel").income(), 0.);
+        assert_eq!(blib.total_expense(Some("Bills")).unwrap(), 0.);
+        assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
     }
 }

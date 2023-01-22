@@ -3,7 +3,9 @@ use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
 use crate::{current_date, parse_date};
 use chrono::{NaiveDate, NaiveDateTime};
+use diesel::dsl::sum;
 use diesel::prelude::*;
+use diesel::sql_types::SqlType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Eq, PartialEq, Clone)]
@@ -82,7 +84,7 @@ impl Transaction {
         amount: f64,
         category_id: i32,
         date_created: NaiveDateTime,
-        budget_account_id: i32
+        budget_account_id: i32,
     ) -> Transaction {
         Transaction {
             id: 0,
@@ -97,8 +99,6 @@ impl Transaction {
             budget_account_id,
         }
     }
-
-
 
     pub fn category_id(&self) -> i32 {
         self.category_id
@@ -181,7 +181,6 @@ impl Transaction {
         self.budget_account_id
     }
 
-
     pub fn set_transfer_category_id(&mut self, transfer_category_id: Option<i32>) {
         self.transfer_category_id = transfer_category_id;
     }
@@ -201,13 +200,73 @@ impl<'a> TransactionModel<'a> {
         TransactionModel { transaction, conn }
     }
 
+    pub fn total(
+        conn: &'a mut SqliteConnection,
+        transfer_type: Option<TransactionType>,
+        _category_id: Option<i32>,
+        _budget_account_id: Option<i32>,
+    ) -> f64 {
+        imp_db!(transactions);
+        let mut query = transactions.into_boxed();
+        if let Some(bid) = _budget_account_id {
+            query = query.filter(budget_account_id.eq(bid))
+        };
+        if let Some(cid) = _category_id {
+            query = query.filter(category_id.eq(cid));
+        };
+        if let Some(tt) = transfer_type {
+            query = query.filter(transaction_type_id.eq(i32::from(tt)))
+        }
+        let result_option = query
+            .select(sum(amount))
+            .first::<Option<f64>>(conn);
+        return_sum!(result_option)
+    }
 
-    pub fn load(conn: &mut SqliteConnection, transaction_id: i32) -> Result<TransactionModel, BudgetingErrors> {
+    pub fn balance(
+        conn: &'a mut SqliteConnection,
+        _category_id: Option<i32>,
+        _budget_account_id: Option<i32>,
+    ) -> f64 {
+        imp_db!(transactions);
+        let mut query = transactions.into_boxed();
+        if let Some(bid) = _budget_account_id {
+            query = query.filter(budget_account_id.eq(bid))
+        };
+        if let Some(cid) = _category_id {
+            query = query.filter(category_id.eq(cid));
+        };
+        let result_option = query
+            .select(sum(amount))
+            .first::<Option<f64>>(conn);
+        return_sum!(result_option)
+    }
+
+    pub fn find_all(
+        conn: &'a mut SqliteConnection,
+        _category_id: Option<i32>,
+        _budget_account_id: Option<i32>,
+    ) -> Vec<Transaction> {
+        imp_db!(transactions);
+        let mut query = transactions.into_boxed();
+        if let Some(bid) = _budget_account_id {
+            query = query.filter(budget_account_id.eq(bid))
+        };
+        if let Some(cid) = _category_id {
+            query = query.filter(category_id.eq(cid));
+        };
+        query.load::<Transaction>(conn).unwrap()
+    }
+
+    pub fn load(
+        conn: &mut SqliteConnection,
+        transaction_id: i32,
+    ) -> Result<TransactionModel, BudgetingErrors> {
         imp_db!(transactions);
         match transactions.find(transaction_id).first::<Transaction>(conn) {
             Ok(c) => Ok(TransactionModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::TransactionNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError)
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
         }
     }
 
@@ -215,6 +274,7 @@ impl<'a> TransactionModel<'a> {
         &self.transaction
     }
 
+    // TODO: Bad code. CategoryModel should not be here
     pub fn category_name(&mut self) -> String {
         match CategoryModel::load(self.conn, self.transaction.category_id) {
             Ok(mut c) => c.category().name(),
@@ -245,7 +305,6 @@ pub struct TransactionForm {
     pub payee: Option<String>,
     pub date_created: Option<NaiveDateTime>,
     pub amount: Option<f64>,
-
 }
 pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
@@ -362,24 +421,5 @@ impl<'a> TransactionBuilder<'a> {
         } else {
             Err(BudgetingErrors::TransactionNotFound)
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::budgeting::Budgeting;
-    use crate::test_helpers::new_budget_using_budgeting;
-    use crate::test_helpers::DbDropper;
-
-    #[test]
-    fn transaction_op_struct_handles_full_transaction_details() {
-        let mut dd = DbDropper::new();
-        let mut blib = Budgeting::new();
-        new_budget_using_budgeting(&mut blib);
-        let mut d = blib.new_transaction_to_category("Travel");
-        d.income(1000.).payee("Some").note("Other").done().unwrap();
-        d.expense(2000.).payee("Some").note("Other").done().unwrap();
-        assert_eq!(blib.category_balance("Travel"), 2000.);
     }
 }

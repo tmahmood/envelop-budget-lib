@@ -1,7 +1,7 @@
 use crate::budgeting::budget_account::BudgetAccount;
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category;
-use crate::budgeting::transaction::{Transaction, TransactionType};
+use crate::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use crate::schema::categories;
 use diesel::dsl::sum;
 use diesel::prelude::*;
@@ -11,15 +11,7 @@ use diesel::sqlite::Sqlite;
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Debug,
-    PartialOrd,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    Default,
-    Clone,
-    Queryable,
-    Identifiable,
+    Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default, Clone, Queryable, Identifiable,
 )]
 #[diesel(table_name = categories)]
 pub struct Category {
@@ -156,10 +148,12 @@ impl<'a> CategoryModel<'a> {
         }
     }
 
-    pub(crate) fn delete(conn: &mut SqliteConnection, category_id: i32) -> Result<usize, BudgetingErrors> {
+    pub(crate) fn delete(
+        conn: &mut SqliteConnection,
+        category_id: i32,
+    ) -> Result<usize, BudgetingErrors> {
         imp_db!(categories);
-        let r = diesel::delete(categories.filter(id.eq(&category_id)))
-            .execute(conn);
+        let r = diesel::delete(categories.filter(id.eq(&category_id))).execute(conn);
         match r {
             Ok(how_many) => Ok(how_many),
             Err(_) => Err(BudgetingErrors::CategoryDeleteFailed),
@@ -176,22 +170,13 @@ impl<'a> CategoryModel<'a> {
         self.category.clone()
     }
 
-
     pub fn load(conn: &mut SqliteConnection, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
         imp_db!(categories);
         match categories.find(cid).first::<Category>(conn) {
             Ok(c) => Ok(CategoryModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError)
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
         }
-    }
-
-    pub fn transactions(&mut self) -> Vec<Transaction> {
-        imp_db!(transactions);
-        transactions
-            .filter(category_id.eq(self.category.id))
-            .load::<Transaction>(self.conn)
-            .unwrap()
     }
 
     pub(crate) fn update_allocation(&mut self, new_allocation: f64) -> QueryResult<usize> {
@@ -201,13 +186,12 @@ impl<'a> CategoryModel<'a> {
             .execute(self.conn)
     }
 
+    pub fn allocated(&self) -> f64 {
+        self.category.allocated()
+    }
+
     fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
-        imp_db!(transactions);
-        let result_option: QueryResult<Option<f64>> = Transaction::belonging_to(&self.category)
-            .select(sum(amount))
-            .filter(transaction_type_id.eq(i32::from(transfer_type)))
-            .first::<Option<f64>>(self.conn);
-        return_sum!(result_option)
+        TransactionModel::total(self.conn, Some(transfer_type), Some(self.category.id), None)
     }
 
     pub fn income(&mut self) -> f64 {
@@ -226,15 +210,16 @@ impl<'a> CategoryModel<'a> {
         self.find_by_transfer_type(TransactionType::TransferOut)
     }
 
-    pub fn allocated(&self) -> f64 {
-        self.category.allocated()
+    pub fn balance(&mut self, _budget_account_id: i32) -> f64 {
+        TransactionModel::total(
+            self.conn,
+            None,
+            Some(self.category.id),
+            Some(_budget_account_id),
+        )
     }
 
-    pub fn balance(&mut self) -> f64 {
-        imp_db!(transactions);
-        let result_option = Transaction::belonging_to(&self.category)
-            .select(sum(amount))
-            .first::<Option<f64>>(self.conn);
-        return_sum!(result_option)
+    pub fn transactions(&mut self) -> Vec<Transaction> {
+        TransactionModel::find_all(self.conn, Some(self.category.id), None)
     }
 }

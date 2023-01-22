@@ -1,10 +1,11 @@
 mod imp;
 
+use adw::glib;
 use adw::prelude::ActionRowExt;
 use glib::{BindingFlags, Object};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use gtk::{glib, pango, Label};
+use gtk::{Label};
 use crate::budget_account::budget_account_object::BudgetAccountObject;
 
 glib::wrapper! {
