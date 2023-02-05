@@ -72,7 +72,7 @@ impl Category {
 }
 
 impl<'a> CategoryBuilder<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, name: &str) -> Self {
+    pub(crate) fn new(conn: &'a mut SqliteConnection, name: &str) -> Self {
         Self {
             name: name.to_string(),
             allocated: 0.0,
@@ -103,21 +103,6 @@ impl<'a> CategoryBuilder<'a> {
     }
 }
 
-impl From<diesel::result::Error> for BudgetingErrors {
-    fn from(value: diesel::result::Error) -> Self {
-        return match value {
-            diesel::result::Error::NotFound => BudgetingErrors::CategoryNotFound,
-            DatabaseError(e, _) => match e {
-                DatabaseErrorKind::UniqueViolation => BudgetingErrors::CategoryAlreadyExists,
-                DatabaseErrorKind::ForeignKeyViolation => {
-                    BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())
-                }
-                _ => BudgetingErrors::UnspecifiedDatabaseError,
-            },
-            _ => BudgetingErrors::UnspecifiedDatabaseError,
-        };
-    }
-}
 
 pub struct CategoryModel<'a> {
     conn: &'a mut SqliteConnection,
@@ -129,7 +114,7 @@ impl<'a> CategoryModel<'a> {
         Self { conn, category }
     }
 
-    pub fn update(
+    pub(crate) fn update(
         conn: &mut SqliteConnection,
         category_id: i32,
         new_name: Option<String>,
@@ -160,17 +145,7 @@ impl<'a> CategoryModel<'a> {
         }
     }
 
-    pub fn category(&mut self) -> Category {
-        imp_db!(categories);
-        let c = categories
-            .find(self.category.id)
-            .first::<Category>(self.conn)
-            .unwrap();
-        self.category = c;
-        self.category.clone()
-    }
-
-    pub fn load(conn: &mut SqliteConnection, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
+    pub(crate) fn load(conn: &mut SqliteConnection, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
         imp_db!(categories);
         match categories.find(cid).first::<Category>(conn) {
             Ok(c) => Ok(CategoryModel::new(conn, c)),
@@ -186,11 +161,21 @@ impl<'a> CategoryModel<'a> {
             .execute(self.conn)
     }
 
+    pub fn category(&mut self) -> Category {
+        imp_db!(categories);
+        let c = categories
+            .find(self.category.id)
+            .first::<Category>(self.conn)
+            .unwrap();
+        self.category = c;
+        self.category.clone()
+    }
+
     pub fn allocated(&self) -> f64 {
         self.category.allocated()
     }
 
-    fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
+    pub fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
         TransactionModel::total(self.conn, Some(transfer_type), Some(self.category.id), None)
     }
 
@@ -221,5 +206,21 @@ impl<'a> CategoryModel<'a> {
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
         TransactionModel::find_all(self.conn, Some(self.category.id), None)
+    }
+}
+
+impl From<diesel::result::Error> for BudgetingErrors {
+    fn from(value: diesel::result::Error) -> Self {
+        return match value {
+            diesel::result::Error::NotFound => BudgetingErrors::CategoryNotFound,
+            DatabaseError(e, _) => match e {
+                DatabaseErrorKind::UniqueViolation => BudgetingErrors::CategoryAlreadyExists,
+                DatabaseErrorKind::ForeignKeyViolation => {
+                    BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())
+                }
+                _ => BudgetingErrors::UnspecifiedDatabaseError,
+            },
+            _ => BudgetingErrors::UnspecifiedDatabaseError,
+        };
     }
 }
