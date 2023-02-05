@@ -12,8 +12,8 @@ glib::wrapper! {
 }
 
 impl TransactionObject {
-    pub fn new(tm: &mut TransactionModel) -> Self {
-        let transaction_inner = from_transaction_to_transfer_inner(tm);
+    pub fn new(tm: &mut TransactionModel, category_name: &str) -> Self {
+        let transaction_inner = from_transaction_to_transfer_inner(tm, category_name.to_string());
         Object::builder()
             .property("id", &transaction_inner.id)
             .property("payee", &transaction_inner.payee)

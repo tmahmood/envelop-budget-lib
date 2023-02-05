@@ -120,7 +120,7 @@ impl ObjectImpl for TransactionObject {
     }
 }
 
-pub fn from_transaction_to_transfer_inner(tm: &mut TransactionModel) -> TransactionInner {
+pub fn from_transaction_to_transfer_inner(tm: &mut TransactionModel, category_name: String) -> TransactionInner {
     let transfer_type = String::from(TransactionType::from(tm.transaction().transfer_type_id()));
     TransactionInner {
         id: tm.transaction().id(),
@@ -129,7 +129,7 @@ pub fn from_transaction_to_transfer_inner(tm: &mut TransactionModel) -> Transact
         date_created: date_to_string(tm.transaction().date_created()),
         amount: fix_float(tm.transaction().amount()),
         only_amount: fix_float(tm.transaction().only_amount()),
-        category_name: tm.category_name(),
+        category_name,
         transaction_type: transfer_type,
     }
 }

@@ -33,6 +33,7 @@ use gtk::{
 };
 use rand::distributions::uniform::SampleBorrow;
 use budget_manager::budgeting::budget_account::BudgetAccount;
+use budget_manager::budgeting::category::CategoryModel;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -121,6 +122,7 @@ impl Window {
             .unwrap();
 
         let filter = self.imp().summary_table.imp().filter_by.borrow().clone();
+        let category_name = category.category().name();
         category
             .transactions()
             .iter()
@@ -133,7 +135,7 @@ impl Window {
             })
             .for_each(|transaction| {
                 let mut tm = budgeting.transaction_model(transaction.clone());
-                let transaction_object = TransactionObject::new(&mut tm);
+                let transaction_object = TransactionObject::new(&mut tm, category_name.as_str());
                 model.append(&transaction_object);
             });
 
@@ -347,7 +349,6 @@ impl Window {
             window.transaction_form(None);
         }));
         self.add_action(&action_new_list);
-
         let action_fund_transfer = gio::SimpleAction::new("fund-transfer", None);
         action_fund_transfer.connect_activate(clone!(@weak self as window => move |_, _| {
             window.fund_transfer();
@@ -355,7 +356,6 @@ impl Window {
             window.setup_transactions();
         }));
         self.add_action(&action_fund_transfer);
-
         let action_new_category = gio::SimpleAction::new("new-category", None);
         action_new_category.connect_activate(clone!(@weak self as window => move |_, _| {
             window.category_form(None);

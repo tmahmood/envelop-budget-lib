@@ -273,15 +273,6 @@ impl<'a> TransactionModel<'a> {
     pub fn transaction(&self) -> &Transaction {
         &self.transaction
     }
-
-    // TODO: Bad code. CategoryModel should not be here
-    pub fn category_name(&mut self) -> String {
-        match CategoryModel::load(self.conn, self.transaction.category_id) {
-            Ok(mut c) => c.category().name(),
-            Err(BudgetingErrors::CategoryNotFound) => "Not Found!".to_string(),
-            _ => "Unknown".to_string(),
-        }
-    }
 }
 
 #[derive(Insertable, Deserialize, Debug)]

@@ -37,7 +37,7 @@ pub struct Budgeting {
 impl Budgeting {
     // get all budget accounts
     pub fn budget_accounts(&mut self) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
-        BudgetAccountModel::find_all(self.conn())
+        BudgetAccountModel::find_all(self.conn_mut())
     }
 
     pub fn new() -> Self {
@@ -57,7 +57,7 @@ impl Budgeting {
         if budget_account.is_ok() {
             return Err(FailedToCreateBudget(filed_as.to_string()));
         }
-        let b = BudgetAccountBuilder::new(self.conn(), filed_as).build();
+        let b = BudgetAccountBuilder::new(self.conn_mut(), filed_as).build();
         self.budget = Some(b.clone());
         self.new_transaction_to_category(DEFAULT_CATEGORY)
             .income(amount)
@@ -72,7 +72,7 @@ impl Budgeting {
         &mut self,
         budget_account: &str,
     ) -> Result<(), BudgetingErrors> {
-        match BudgetAccountModel::load_by_name(self.conn(), budget_account) {
+        match BudgetAccountModel::load_by_name(self.conn_mut(), budget_account) {
             Ok(e) => {
                 self.budget = Some(e);
                 Ok(())
@@ -94,7 +94,7 @@ impl Budgeting {
     pub fn new_transaction_to_category<'b>(&'b mut self, category: &'b str) -> TransactionBuilder {
         let b = self.current_budget();
         let mut _category = self.find_category(category).unwrap();
-        TransactionBuilder::new(self.conn(), b.id(), _category.id())
+        TransactionBuilder::new(self.conn_mut(), b.id(), _category.id())
     }
 
     /// Transfers fund from one category to another
@@ -123,11 +123,11 @@ impl Budgeting {
         name: Option<String>,
         amount: Option<f64>,
     ) -> Result<i32, BudgetingErrors> {
-        CategoryModel::update(self.conn(), category_id, name, amount)
+        CategoryModel::update(self.conn_mut(), category_id, name, amount)
     }
 
     pub fn delete_category(&mut self, category_id: i32) -> Result<(usize), BudgetingErrors> {
-        CategoryModel::delete(self.conn(), category_id)
+        CategoryModel::delete(self.conn_mut(), category_id)
     }
 
     /// calculates the amount required to fully fund the category from unallocated balance.
@@ -202,15 +202,15 @@ impl Budgeting {
     }
 
     pub fn category_model(&mut self, category: Category) -> CategoryModel {
-        CategoryModel::new(self.conn(), category)
+        CategoryModel::new(self.conn_mut(), category)
     }
 
     pub fn transaction_model(&mut self, transaction: Transaction) -> TransactionModel {
-        TransactionModel::new(self.conn(), transaction)
+        TransactionModel::new(self.conn_mut(), transaction)
     }
 
     pub fn budget_account_model(&mut self, budget_account: BudgetAccount) -> BudgetAccountModel {
-        BudgetAccountModel::new(self.conn(), budget_account)
+        BudgetAccountModel::new(self.conn_mut(), budget_account)
     }
 
     pub fn get_category_model(&mut self, category_name: &str) -> CategoryModel {
@@ -222,19 +222,19 @@ impl Budgeting {
         &mut self,
         category_id: i32,
     ) -> Result<CategoryModel, BudgetingErrors> {
-        CategoryModel::load(self.conn(), category_id)
+        CategoryModel::load(self.conn_mut(), category_id)
     }
 
     pub fn get_transaction_model_by_id(
         &mut self,
         transaction_id: i32,
     ) -> Result<TransactionModel, BudgetingErrors> {
-        TransactionModel::load(self.conn(), transaction_id)
+        TransactionModel::load(self.conn_mut(), transaction_id)
     }
 
     pub fn find_category(&mut self, category_name: &str) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
-        let conn = self.conn();
+        let conn = self.conn_mut();
         let result: QueryResult<Category> = categories.filter(name.eq(category_name)).first(conn);
         result.map_err(|e| CategoryNotFound)
     }
@@ -248,7 +248,7 @@ impl Budgeting {
         imp_db!(budget_accounts);
         let budget_account: QueryResult<BudgetAccount> = budget_accounts
             .filter(filed_as.eq(_filed_as))
-            .first(self.conn());
+            .first(self.conn_mut());
         budget_account
     }
 
@@ -269,14 +269,14 @@ impl Budgeting {
 
     pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
         let id = self.current_budget().id();
-        CategoryBuilder::new(self.conn(), category_name)
+        CategoryBuilder::new(self.conn_mut(), category_name)
     }
 
     /// returns all the category. To get the unallocated category
     /// `uncategorized` method can be used
     pub fn all_categories(&mut self) -> Vec<Category> {
         imp_db!(categories);
-        categories.load::<Category>(self.conn()).unwrap()
+        categories.load::<Category>(self.conn_mut()).unwrap()
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category
@@ -285,17 +285,16 @@ impl Budgeting {
         imp_db!(categories);
         categories
             .filter(name.ne(DEFAULT_CATEGORY))
-            .load::<Category>(self.conn())
+            .load::<Category>(self.conn_mut())
             .unwrap()
     }
-
 
     pub fn total_allocated(&mut self) -> f64 {
         imp_db!(categories);
         let result_option: QueryResult<Option<f64>> = categories
             .select(sum(allocated))
             .filter(name.ne(DEFAULT_CATEGORY))
-            .first::<Option<f64>>(self.conn());
+            .first::<Option<f64>>(self.conn_mut());
         return_sum!(result_option)
     }
 
@@ -303,7 +302,7 @@ impl Budgeting {
         imp_db!(categories);
         categories
             .filter(name.eq(DEFAULT_CATEGORY))
-            .first::<Category>(self.conn())
+            .first::<Category>(self.conn_mut())
             .unwrap()
     }
 
@@ -312,12 +311,7 @@ impl Budgeting {
     /// unallocated balance would be balance unused + all the transactions in unallocated category
     pub fn actual_total_balance(&mut self) -> f64 {
         let bid = self.current_budget().id();
-        imp_db!(transactions);
-        let result = transactions
-            .filter(budget_account_id.eq(bid))
-            .select(sum(amount))
-            .first::<Option<f64>>(self.conn());
-        return_sum!(result)
+        TransactionModel::total(self.conn_mut(), None, None, Some(bid))
     }
 
     /// returns the total unallocated balance
@@ -329,7 +323,7 @@ impl Budgeting {
             .select(sum(amount))
             .filter(category_id.eq(c.id()))
             .filter(budget_account_id.eq(bid))
-            .first::<Option<f64>>(self.conn());
+            .first::<Option<f64>>(self.conn_mut());
         return_sum!(result_option)
     }
 
@@ -341,7 +335,11 @@ impl Budgeting {
         self.total_of(TransactionType::Expense, category)
     }
 
-    fn total_of(&mut self, filter_opt: TransactionType, category: Option<&str>) -> Result<f64, BudgetingErrors> {
+    fn total_of(
+        &mut self,
+        filter_opt: TransactionType,
+        category: Option<&str>,
+    ) -> Result<f64, BudgetingErrors> {
         let cid = if let Some(c) = category {
             Some(self.find_category(c)?.id())
         } else {
@@ -349,16 +347,19 @@ impl Budgeting {
         };
         let bid = self.current_budget().id();
         Ok(TransactionModel::total(
-            self.conn(), Some(filter_opt), cid, Some(bid)
+            self.conn_mut(),
+            Some(filter_opt),
+            cid,
+            Some(bid),
         ))
     }
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
         let bid = Some(self.current_budget().id());
-        TransactionModel::find_all(self.conn(), None, bid)
+        TransactionModel::find_all(self.conn_mut(), None, bid)
     }
 
-    pub(crate) fn conn(&mut self) -> &mut SqliteConnection {
+    pub(crate) fn conn_mut(&mut self) -> &mut SqliteConnection {
         self.conn.get_mut()
         //Rc::get_mut(&mut self.conn).unwrap()
     }
@@ -382,7 +383,24 @@ pub mod tests {
         assert_eq!(blib.uncategorized_balance(), 5000.);
         assert_eq!(blib.actual_total_balance(), 5000.);
 
+        assert!(blib.create_category("Bills", 2000., true).is_ok());
+        assert!(blib.create_category("Travel", 3000., true).is_ok());
+
+        assert_eq!(blib.uncategorized_balance(), 0.);
+        assert_eq!(blib.actual_total_balance(), 5000.);
+
+        assert!(blib
+            .new_transaction_to_category("Bills")
+            .expense(2000.)
+            .payee("NO")
+            .note("Internet")
+            .done()
+            .is_ok());
+
+        assert_eq!(blib.actual_total_balance(), 3000.);
+        assert_eq!(blib.total_expense(None).unwrap(), -2000.);
         blib.switch_budget_account("savings").unwrap();
+
         assert_eq!(blib.uncategorized_balance(), 10000.);
         assert_eq!(blib.actual_total_balance(), 10000.);
     }
@@ -474,7 +492,7 @@ pub mod tests {
         let bid = blib.current_budget().id();
         {
             let category = blib.find_category("Bills").unwrap();
-            let mut bills = CategoryModel::new(blib.conn(), category);
+            let mut bills = CategoryModel::new(blib.conn_mut(), category);
             assert_eq!(bills.allocated(), BILLS);
             assert_eq!(bills.balance(bid), BILLS);
         }
@@ -482,7 +500,7 @@ pub mod tests {
         let mut tb = bills.income(500.).payee("Some").note("Other").done();
         {
             let category = blib.find_category("Bills").unwrap();
-            let mut bills = CategoryModel::new(blib.conn(), category);
+            let mut bills = CategoryModel::new(blib.conn_mut(), category);
             assert_eq!(bills.allocated(), BILLS);
             assert_eq!(bills.balance(bid), BILLS + 500.);
         }
@@ -495,7 +513,7 @@ pub mod tests {
         new_budget_using_budgeting(&mut blib);
         let _home = {
             let home_id = blib.create_category("Home", 3000., true).unwrap();
-            let mut cm = CategoryModel::load(blib.conn(), home_id).unwrap();
+            let mut cm = CategoryModel::load(blib.conn_mut(), home_id).unwrap();
             let home = cm.category();
             assert_eq!(home.allocated(), 3000.0);
             assert_eq!(blib.category_balance("Home"), 3000.0);
