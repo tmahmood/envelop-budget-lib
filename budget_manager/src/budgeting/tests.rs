@@ -100,8 +100,8 @@ fn transactions_in_default_category_should_change_balance() {
         .note("Other")
         .done()
         .unwrap();
-    assert_eq!(blib.category_balance(DEFAULT_CATEGORY), -1000. + 10000.);
-    assert_eq!(blib.category_balance("Bills"), 2000.);
+    assert_eq!(blib.category_balance(DEFAULT_CATEGORY).unwrap(), -1000. + 10000.);
+    assert_eq!(blib.category_balance("Bills").unwrap(), 2000.);
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn finding_category_by_name_in_budget_account() {
     let bid = blib.current_budget().id();
     {
         let category = blib.find_category("Bills").unwrap();
-        let mut bills = CategoryModel::new(blib.borrow_conn().deref_mut(), category);
+        let mut bills = CategoryModel::new(blib.conn_mut(), category);
         assert_eq!(bills.allocated(), BILLS);
         assert_eq!(bills.balance(bid), BILLS);
     }
@@ -131,7 +131,7 @@ fn finding_category_by_name_in_budget_account() {
     let mut tb = bills.income(500.).payee("Some").note("Other").done();
     {
         let category = blib.find_category("Bills").unwrap();
-        let mut bills = CategoryModel::new(blib.borrow_conn().deref_mut(), category);
+        let mut bills = CategoryModel::new(blib.conn_mut(), category);
         assert_eq!(bills.allocated(), BILLS);
         assert_eq!(bills.balance(bid), BILLS + 500.);
     }
@@ -143,10 +143,9 @@ fn creating_category_and_do_transactions() {
     let mut blib = Budgeting::new();
     new_budget_using_budgeting(&mut blib);
     let _home = {
-        let home_id = blib.create_category("Home", 3000., true).unwrap();
-        let mut home = CategoryModel::load(blib.borrow_conn().deref_mut(), home_id).unwrap();
+        let home = { blib.create_category("Home", 3000., true).unwrap() };
         assert_eq!(home.allocated(), 3000.0);
-        assert_eq!(blib.category_balance("Home"), 3000.0);
+        assert_eq!(blib.category_balance("Home").unwrap(), 3000.0);
         home
     };
     let mut home_ops = blib.new_transaction_to_category("Home");
@@ -162,7 +161,7 @@ fn creating_category_and_do_transactions() {
         .note("test some")
         .done()
         .expect("Error occurred");
-    assert_eq!(blib.category_balance("Home"), 2000.0);
+    assert_eq!(blib.category_balance("Home").unwrap(), 2000.0);
     let mut cm = blib.get_category_model("Home");
 
     assert_eq!(cm.allocated(), 3000.);
@@ -175,7 +174,7 @@ pub fn spending_from_category() {
     let mut dd = DbDropper::new();
     let mut blib = Budgeting::new();
     new_budget_using_budgeting(&mut blib);
-    let bills_available = blib.category_balance("Bills");
+    let bills_available = blib.category_balance("Bills").unwrap();
     assert_eq!(bills_available, BILLS);
     assert_eq!(blib.actual_total_balance(), BILLS + TRAVEL + UNUSED);
     blib.new_transaction_to_category("Bills")
@@ -184,7 +183,7 @@ pub fn spending_from_category() {
         .note("test")
         .done()
         .expect("Error occurred");
-    let bills_available = blib.category_balance("Bills");
+    let bills_available = blib.category_balance("Bills").unwrap();
     assert_eq!(bills_available, 0.0);
     assert_eq!(blib.actual_total_balance(), TRAVEL + UNUSED);
 }
@@ -218,7 +217,7 @@ pub fn funding_category_good() {
         .done()
         .expect("Error occurred");
     assert_eq!(blib.fund_all_from_unallocated("Bills", false), Ok(()));
-    assert_eq!(blib.category_balance("Bills"), BILLS);
+    assert_eq!(blib.category_balance("Bills").unwrap(), BILLS);
 }
 
 #[test]

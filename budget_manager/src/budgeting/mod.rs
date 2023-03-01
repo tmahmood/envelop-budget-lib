@@ -15,7 +15,7 @@ use diesel::dsl::sum;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl, SqliteConnection};
 use std::borrow::BorrowMut;
 use std::cell::{RefCell, RefMut};
-use std::rc::Rc;
+use std::ops::DerefMut;
 
 pub mod budget_account;
 pub mod budgeting_errors;
@@ -47,6 +47,7 @@ impl Budgeting {
             budget: None,
         }
     }
+
     /// creates a new budget and set as current budget
     pub fn new_budget(
         &mut self,
@@ -83,7 +84,7 @@ impl Budgeting {
 
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
-    pub fn new_transaction_to_category<'b>(&'b mut self, category: &'b str) -> TransactionBuilder {
+    pub fn new_transaction_to_category(&mut self, category: &str) -> TransactionBuilder {
         let b = self.current_budget();
         let mut _category = self.find_category(category).unwrap();
         TransactionBuilder::new(self.conn_mut(), b.id(), _category.id())
@@ -114,7 +115,7 @@ impl Budgeting {
         category_id: i32,
         name: Option<String>,
         amount: Option<f64>,
-    ) -> Result<i32, BudgetingErrors> {
+    ) -> Result<usize, BudgetingErrors> {
         CategoryModel::update(self.conn_mut(), category_id, name, amount)
     }
 
@@ -136,7 +137,7 @@ impl Budgeting {
         if balance >= allocated {
             return Err(BudgetingErrors::AlreadyFunded);
         }
-        let src_balance = self.category_balance(src_category);
+        let src_balance = self.category_balance(src_category)?;
         let to_fund = if balance > 0. {
             allocated - balance
         } else {
@@ -158,7 +159,7 @@ impl Budgeting {
         fund: f64,
         as_much_possible: bool,
     ) -> Result<f64, BudgetingErrors> {
-        let src_balance = self.category_balance(src_category);
+        let src_balance = self.category_balance(src_category)?;
         let diff_src_to_fund = src_balance - fund;
         if diff_src_to_fund <= 0. {
             if as_much_possible && fund <= src_balance && src_balance != 0. {
@@ -185,12 +186,12 @@ impl Budgeting {
         category: &str,
         allocate: f64,
         transfer: bool,
-    ) -> Result<i32, BudgetingErrors> {
+    ) -> Result<Category, BudgetingErrors> {
         let c = self.category_builder(category).allocated(allocate).done()?;
         if transfer {
             self.transfer_fund(DEFAULT_CATEGORY, category, allocate)?;
         }
-        Ok(c.id())
+        Ok(c)
     }
 
     pub fn category_model(&mut self, category: Category) -> CategoryModel {
@@ -224,16 +225,18 @@ impl Budgeting {
         TransactionModel::load(self.conn_mut(), transaction_id)
     }
 
-    pub fn find_category(&mut self, category_name: &str) -> Result<Category, BudgetingErrors> {
+    pub fn find_category(&self, category_name: &str) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
-        let conn = self.conn_mut();
-        let result: QueryResult<Category> = categories.filter(name.eq(category_name)).first(conn);
+        let mut conn = self.conn.borrow_mut();
+        let result: QueryResult<Category> = categories.filter(name.eq(category_name)).first(conn.deref_mut());
         result.map_err(|e| CategoryNotFound)
     }
 
-    pub fn category_balance(&mut self, category: &str) -> f64 {
+    pub fn category_balance(&self, category: &str) -> Result<f64, BudgetingErrors> {
         let bid = self.current_budget().id();
-        self.get_category_model(category).balance(bid)
+        let mut c = self.conn.borrow_mut();
+        let conn = c.deref_mut();
+        CategoryModel::c_balance(conn, bid, category)
     }
 
     pub fn find_budget(&mut self, _filed_as: &str) -> QueryResult<BudgetAccount> {
@@ -260,7 +263,6 @@ impl Budgeting {
     }
 
     pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
-        let id = self.current_budget().id();
         CategoryBuilder::new(self.conn_mut(), category_name)
     }
 
@@ -300,7 +302,8 @@ impl Budgeting {
 
     /// actual total balance? it is the real money available
     /// sum of all the category balances + unallocated balance
-    /// unallocated balance would be balance unused + all the transactions in unallocated category
+    /// unallocated balance would be balance unused + all the
+    /// transactions in unallocated category
     pub fn actual_total_balance(&mut self) -> f64 {
         let bid = self.current_budget().id();
         TransactionModel::total(self.conn_mut(), None, None, Some(bid))
@@ -346,15 +349,15 @@ impl Budgeting {
         ))
     }
 
-    pub fn transactions(&mut self) -> Vec<Transaction> {
+    pub fn transactions(&mut self, _category_id: Option<i32>) -> Vec<Transaction> {
         let bid = Some(self.current_budget().id());
-        TransactionModel::find_all(self.conn_mut(), None, bid)
+        TransactionModel::find_all(self.conn_mut(), _category_id, bid)
     }
+
 
     pub(crate) fn conn_mut(&mut self) -> &mut SqliteConnection {
         self.conn.get_mut()
     }
-
 }
 
 impl Default for Budgeting {

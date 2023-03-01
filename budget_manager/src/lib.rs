@@ -95,9 +95,6 @@ pub fn run_migrations(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::budgeting::budget_account::{BudgetAccount, BudgetAccountBuilder};
-
-    use crate::budgeting::category::CategoryBuilder;
     use crate::budgeting::Budgeting;
     use crate::test_helpers;
     use crate::test_helpers::DbDropper;
@@ -127,7 +124,7 @@ mod tests {
         let mut blib = Budgeting::new();
         test_helpers::new_budget_using_budgeting(&mut blib);
         // initial + allocation to bills * 2 + allocation to travel * 2
-        assert_eq!(blib.transactions().len(), 5);
+        assert_eq!(blib.transactions(None).len(), 5);
         assert_eq!(blib.actual_total_balance(), INITIAL);
         assert_eq!(blib.uncategorized_balance(), INITIAL - (BILLS + TRAVEL));
         // now let's do some transactions
@@ -179,12 +176,12 @@ mod tests {
         // check total balance
         assert_eq!(blib.actual_total_balance(), INITIAL - 3600. + 5400.);
         assert_eq!(
-            blib.category_balance("Travel"),
+            blib.category_balance("Travel").unwrap(),
             TRAVEL - 1000. - 1300. + 400.
         );
-        assert_eq!(blib.category_balance("Bills"), BILLS - 300.);
+        assert_eq!(blib.category_balance("Bills").unwrap(), BILLS - 300.);
         assert_eq!(
-            blib.category_balance(DEFAULT_CATEGORY),
+            blib.category_balance(DEFAULT_CATEGORY).unwrap(),
             INITIAL + 5000. - 1000. - 3000. - 2000.
         );
     }
@@ -196,8 +193,8 @@ mod tests {
         test_helpers::new_budget_using_budgeting(&mut blib);
         assert!(blib.transfer_fund("Bills", "Travel", BILLS).is_ok());
         //
-        assert_eq!(blib.category_balance("Bills"), 0.);
-        assert_eq!(blib.category_balance("Travel"), BILLS + TRAVEL);
+        assert_eq!(blib.category_balance("Bills").unwrap(), 0.);
+        assert_eq!(blib.category_balance("Travel").unwrap(), BILLS + TRAVEL);
         //
         assert_eq!(blib.total_expense(Some("Bills")).unwrap(), 0.);
         assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);

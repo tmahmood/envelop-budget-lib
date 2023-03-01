@@ -119,7 +119,7 @@ impl<'a> CategoryModel<'a> {
         category_id: i32,
         new_name: Option<String>,
         new_allocated: Option<f64>,
-    ) -> Result<i32, BudgetingErrors> {
+    ) -> Result<usize, BudgetingErrors> {
         imp_db!(categories);
         let r = diesel::update(categories.find(category_id))
             .set(&CategoryForm {
@@ -128,8 +128,17 @@ impl<'a> CategoryModel<'a> {
             })
             .execute(conn);
         match r {
-            Ok(_) => Ok(category_id),
+            Ok(a) => Ok(a),
             Err(_) => Err(BudgetingErrors::CategoryUpdateFailed),
+        }
+    }
+
+    pub(crate) fn find_by_name(conn: &mut SqliteConnection, _name: &str) -> Result<Category, BudgetingErrors> {
+        imp_db!(categories);
+        match categories.filter(name.eq(_name)).first::<Category>(conn) {
+            Ok(c) => Ok(c),
+            Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
+            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
         }
     }
 
@@ -161,6 +170,15 @@ impl<'a> CategoryModel<'a> {
             .execute(self.conn)
     }
 
+    pub fn c_balance(conn: &mut SqliteConnection, _budget_account_id: i32, category: &str) -> Result<f64, BudgetingErrors> {
+        let c = CategoryModel::find_by_name(conn, category)?;
+        Ok(TransactionModel::total(
+            conn,
+            None,
+            Some(c.id),
+            Some(_budget_account_id),
+        ))
+    }
     pub fn category(&mut self) -> Category {
         imp_db!(categories);
         let c = categories

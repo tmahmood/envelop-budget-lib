@@ -3,9 +3,11 @@ use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
 use crate::{current_date, parse_date};
 use chrono::{NaiveDate, NaiveDateTime};
+use diesel::debug_query;
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::sql_types::SqlType;
+use diesel::sqlite::Sqlite;
 use serde::{Deserialize, Serialize};
 
 #[derive(Eq, PartialEq, Clone)]
@@ -200,7 +202,7 @@ impl<'a> TransactionModel<'a> {
         TransactionModel { transaction, conn }
     }
 
-    pub fn total(
+    pub(crate) fn total(
         conn: &'a mut SqliteConnection,
         transfer_type: Option<TransactionType>,
         _category_id: Option<i32>,
@@ -209,21 +211,19 @@ impl<'a> TransactionModel<'a> {
         imp_db!(transactions);
         let mut query = transactions.into_boxed();
         if let Some(bid) = _budget_account_id {
-            query = query.filter(budget_account_id.eq(bid))
+            query = query.filter(budget_account_id.eq(bid));
         };
         if let Some(cid) = _category_id {
             query = query.filter(category_id.eq(cid));
         };
         if let Some(tt) = transfer_type {
-            query = query.filter(transaction_type_id.eq(i32::from(tt)))
+            let t = i32::from(tt);
+            query = query.filter(transaction_type_id.eq(t));
         }
-        let result_option = query
-            .select(sum(amount))
-            .first::<Option<f64>>(conn);
-        return_sum!(result_option)
+        return_sum!(query.select(sum(amount)).first::<Option<f64>>(conn))
     }
 
-    pub fn balance(
+    pub(crate) fn balance(
         conn: &'a mut SqliteConnection,
         _category_id: Option<i32>,
         _budget_account_id: Option<i32>,
@@ -236,13 +236,11 @@ impl<'a> TransactionModel<'a> {
         if let Some(cid) = _category_id {
             query = query.filter(category_id.eq(cid));
         };
-        let result_option = query
-            .select(sum(amount))
-            .first::<Option<f64>>(conn);
+        let result_option = query.select(sum(amount)).first::<Option<f64>>(conn);
         return_sum!(result_option)
     }
 
-    pub fn find_all(
+    pub(crate) fn find_all(
         conn: &'a mut SqliteConnection,
         _category_id: Option<i32>,
         _budget_account_id: Option<i32>,
@@ -258,7 +256,7 @@ impl<'a> TransactionModel<'a> {
         query.load::<Transaction>(conn).unwrap()
     }
 
-    pub fn load(
+    pub(crate) fn load(
         conn: &mut SqliteConnection,
         transaction_id: i32,
     ) -> Result<TransactionModel, BudgetingErrors> {

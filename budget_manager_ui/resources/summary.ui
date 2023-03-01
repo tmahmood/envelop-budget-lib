@@ -28,9 +28,6 @@
 
                         <child>
                             <object class="GtkListBox">
-                                <style>
-                                    <class name="boxed-list"/>
-                                </style>
                                 <child>
                                     <object class="AdwActionRow" id="overspent_by">
                                         <property name="subtitle">Overspent</property>
@@ -83,7 +80,8 @@
                                             <object class="GtkButton" id="allocation_adjustment_btn">
                                                 <property name="action-name">win.allocate-adjustment</property>
                                                 <property name="label">Allocate</property>
-                                                <property name="tooltip-text">Update allocation for this Category</property>
+                                                <property name="tooltip-text">Update allocation for this Category
+                                                </property>
                                             </object>
                                         </child>
                                     </object>
@@ -94,9 +92,6 @@
 
                         <child>
                             <object class="GtkListBox">
-                                <style>
-                                    <class name="boxed-list"/>
-                                </style>
                                 <child>
                                     <object class="AdwActionRow">
                                         <property name="title">All Transactions</property>
@@ -192,6 +187,5 @@
                 </property>
             </object>
         </child>
-
     </template>
 </interface>

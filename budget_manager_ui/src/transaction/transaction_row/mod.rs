@@ -29,7 +29,7 @@ impl TransactionRow {
     pub fn bind_objects(self, transaction_object: &TransactionObject) -> Self {
         self.imp().transaction_id.replace(transaction_object.id());
         let id_label = self.imp().transaction_id_btn.get();
-        let data_inside_row_prefix = self.imp().data_inside_row_prefix.get();
+        let _data_inside_row_prefix = self.imp().data_inside_row_prefix.get();
         let data_inside_row_suffix = self.imp().data_inside_row_suffix.get();
         let image = self.imp().transaction_type.get();
         let data_action = self.imp().data_action.get();

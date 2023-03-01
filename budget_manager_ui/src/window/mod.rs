@@ -22,7 +22,9 @@ use crate::{fix_float, from_gdate_to_naive_date_time};
 use adw::builders::ToastBuilder;
 use adw::prelude::*;
 use adw::Application;
+use budget_manager::budgeting::budget_account::BudgetAccount;
 use budget_manager::budgeting::budgeting_errors::BudgetingErrors;
+use budget_manager::budgeting::category::{Category, CategoryModel};
 use budget_manager::budgeting::transaction::{TransactionModel, TransactionType};
 use budget_manager::budgeting::Budgeting;
 use budget_manager::DEFAULT_CATEGORY;
@@ -32,8 +34,6 @@ use gtk::{
     gio, glib, Entry, ListBox, ListBoxRow, NoSelection, ResponseType, StringList, ToggleButton,
 };
 use rand::distributions::uniform::SampleBorrow;
-use budget_manager::budgeting::budget_account::BudgetAccount;
-use budget_manager::budgeting::category::CategoryModel;
 
 glib::wrapper! {
 pub struct Window(ObjectSubclass<imp::Window>)
@@ -69,11 +69,8 @@ impl Window {
                 self.setup_transactions();
                 self.setup_summary_table();
             }
-            Err(e) => {
-                self.show_toast(&format!("Failed to select budget: {}", e.to_string()))
-            }
+            Err(e) => self.show_toast(&format!("Failed to select budget: {}", e.to_string())),
         }
-
     }
 
     pub fn setup_budget_accounts_listing(&self) {
@@ -123,8 +120,7 @@ impl Window {
 
         let filter = self.imp().summary_table.imp().filter_by.borrow().clone();
         let category_name = category.category().name();
-        category
-            .transactions()
+        budgeting.transactions(Some(cid.deref().clone()))
             .iter()
             .filter(|v| {
                 if let Some(x) = &filter {
@@ -233,7 +229,6 @@ impl Window {
             overspent_by.remove_css_class("error");
             summary_table.imp().allocation_adjustment.set_value(0.);
         }
-        self.imp().summary_table.imp().toggle.set_label(&balance);
         let summary_data = SummaryData {
             transfer_in,
             transfer_out,
@@ -509,22 +504,31 @@ impl Window {
         dialog.destroy();
         let r = {
             let mut budgeting = self.imp().budgeting.borrow_mut();
-            if cid.is_some() {
-                let category_id = cid.unwrap();
-                budgeting.update_category(category_id, name, amount)
-            } else {
-                budgeting.create_category(&name.unwrap(), amount.unwrap(), false)
-            }
+            cid.and_then(|category_id| {
+                match budgeting.update_category(category_id, name.clone(), amount.clone()) {
+                    Ok(_) => Some(category_id),
+                    Err(e) => {
+                        self.show_toast(&format!("Failed to update category: {}", e));
+                        None
+                    }
+                }
+            })
+            .or_else(|| {
+                match budgeting.create_category(&name.unwrap(), amount.unwrap(), false) {
+                    Ok(c) => Some(c.id()),
+                    Err(e) => {
+                        self.show_toast(&format!("Failed to create category: {}", e));
+                        None
+                    }
+                }
+            })
         };
-        match r {
-            Ok(category_id) => {
-                self.imp().current_category_id.replace(category_id);
-                self.setup_categories();
-                self.setup_summary_table();
-                self.setup_transactions();
-            }
-            Err(e) => self.show_toast(&format!("{}", e)),
-        };
+        if let Some(cid) = r {
+            self.imp().current_category_id.replace(cid);
+            self.setup_categories();
+            self.setup_summary_table();
+            self.setup_transactions();
+        }
     }
 
     fn setup_callbacks(&self) {

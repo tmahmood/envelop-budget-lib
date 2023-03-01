@@ -123,14 +123,7 @@
                         <child>
                             <object class="AdwHeaderBar">
                                 <property name="title-widget">
-                                    <object class="GtkBox">
-                                        <child>
-                                            <object class="AdwWindowTitle" id="transaction_title"/>
-                                        </child>
-                                        <child>
-                                            <object class="SummaryTable" id="summary_table"/>
-                                        </child>
-                                    </object>
+                                    <object class="AdwWindowTitle" id="transaction_title"/>
                                 </property>
                                 <child type="start">
                                     <object class="GtkButton" id="back_button">
@@ -150,6 +143,10 @@
                                         <property name="action-name">win.new-transaction</property>
                                     </object>
                                 </child>
+                                <child type="end">
+                                    <object class="SummaryTable" id="summary_table"/>
+
+                                </child>
                             </object>
                         </child>
 
@@ -167,9 +164,6 @@
                                         <property name="child">
                                             <object class="GtkListBox"
                                                     id="transactions_list">
-                                                <style>
-                                                    <class name="boxed-list"/>
-                                                </style>
                                             </object>
                                         </property>
                                     </object>
