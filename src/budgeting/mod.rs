@@ -22,7 +22,6 @@ use dotenvy::dotenv;
 pub mod budget_account;
 pub mod budgeting_errors;
 pub mod category;
-pub mod storage;
 pub mod transaction;
 
 mod builder {
@@ -99,15 +98,16 @@ impl Budgeting {
         dest: &str,
         amount: f64,
     ) -> Result<(), BudgetingErrors> {
-        self.new_transaction_to_category(src)
+        let k = self.new_transaction_to_category(src)
             .transfer_from(amount)
             .payee(dest)
-            .note(&format!("Funded {}", dest))
+            .note(&format!("Funded"))
             .done()?;
         self.new_transaction_to_category(dest)
             .transfer_to(amount)
+            .transfer_category_id(k.category_id())
             .payee(src)
-            .note(&format!("Received {}", src))
+            .note(&format!("Received"))
             .done()?;
         Ok(())
     }

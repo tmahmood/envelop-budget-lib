@@ -1,13 +1,10 @@
 use crate::budgeting::budgeting_errors::BudgetingErrors;
-use crate::budgeting::category::{Category, CategoryModel};
+use crate::budgeting::category::{Category};
 use crate::schema::transactions;
 use crate::{current_date, parse_date};
-use chrono::{NaiveDate, NaiveDateTime};
-use diesel::debug_query;
+use chrono::{NaiveDateTime};
 use diesel::dsl::sum;
 use diesel::prelude::*;
-use diesel::sql_types::SqlType;
-use diesel::sqlite::Sqlite;
 use serde::{Deserialize, Serialize};
 
 #[derive(Eq, PartialEq, Clone)]
@@ -375,6 +372,11 @@ impl<'a> TransactionBuilder<'a> {
         self
     }
 
+    pub fn transfer_category_id(&mut self, _transfer_category_id: i32) -> &mut Self {
+        self.transfer_category_id = Some(_transfer_category_id);
+        self
+    }
+
     pub fn done(&mut self) -> Result<Transaction, BudgetingErrors> {
         if self.note.is_none() || self.payee.is_none() || self.amount.is_none() {
             return Err(BudgetingErrors::MissingTransactionFields);
@@ -391,7 +393,7 @@ impl<'a> TransactionBuilder<'a> {
             amount: signed_amount,
             category_id: self.category_id,
             transaction_type_id: i32::from(self.transaction_type.clone()),
-            transfer_category_id: None,
+            transfer_category_id: self.transfer_category_id,
             budget_account_id: self.budget_account_id,
         };
         imp_db!(transactions);
