@@ -1,3 +1,4 @@
+use std::env;
 use chrono::{Local, NaiveDateTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
@@ -40,7 +41,6 @@ macro_rules! imp_db {
 /// * We can not spend more money then what we have allocated in that category
 /// * We can transfer money from one category to other
 ///
-pub mod budget_account_op;
 pub mod budgeting;
 pub mod schema;
 #[cfg(test)]
@@ -73,12 +73,13 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
 
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
-    let database_url = "sqlite://db.sqlite";
-    SqliteConnection::establish(database_url)
+    let database_url = env::var("DATABASE_URL").unwrap();
+    SqliteConnection::establish(&database_url)
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
 pub fn run_migrations(
@@ -97,7 +98,7 @@ mod tests {
     use super::*;
     use crate::budgeting::Budgeting;
     use crate::test_helpers;
-    use crate::test_helpers::DbDropper;
+    use crate::test_helpers::{memory_db};
 
     // test all the possible things!
 
@@ -111,8 +112,8 @@ mod tests {
 
     #[test]
     fn transfer_should_not_be_counted_as_income_or_expense() {
-        let _dd = DbDropper::new();
-        let mut blib = Budgeting::new();
+        let mut db = memory_db();
+        let mut blib = Budgeting::new(db);
         test_helpers::new_budget_using_budgeting(&mut blib);
         assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
         assert_eq!(blib.total_expense(Some(DEFAULT_CATEGORY)).unwrap(), 0.);
@@ -120,10 +121,10 @@ mod tests {
 
     #[test]
     fn creating_budget_and_adding_transaction() {
-        let _db = DbDropper::new();
-        let mut blib = Budgeting::new();
+        let mut db = memory_db();
+        let mut blib = Budgeting::new(db);
         test_helpers::new_budget_using_budgeting(&mut blib);
-        // initial + allocation to bills * 2 + allocation to travel * 2
+        // initial + allocation to bills + allocation to travel
         assert_eq!(blib.transactions(None).len(), 5);
         assert_eq!(blib.actual_total_balance(), INITIAL);
         assert_eq!(blib.uncategorized_balance(), INITIAL - (BILLS + TRAVEL));
@@ -186,10 +187,11 @@ mod tests {
         );
     }
 
+
     #[test]
     fn transfer_fund_from_balance() {
-        let dd = DbDropper::new();
-        let mut blib = Budgeting::new();
+        let mut db = memory_db();
+        let mut blib = Budgeting::new(db);
         test_helpers::new_budget_using_budgeting(&mut blib);
         assert!(blib.transfer_fund("Bills", "Travel", BILLS).is_ok());
         //

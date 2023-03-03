@@ -1,12 +1,13 @@
 use super::*;
-use crate::test_helpers::{new_budget_using_budgeting, DbDropper};
+use crate::test_helpers::{new_budget_using_budgeting, memory_db};
 use crate::tests::{BILLS, INITIAL, TRAVEL, UNUSED};
 use diesel::prelude::*;
 
 #[test]
 fn managing_multiple_budget_accounts() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    // let mut dd = DbDropper::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
 
     blib.new_budget("savings", 10000.).unwrap();
     blib.new_budget("wallet", 5000.).unwrap();
@@ -38,8 +39,8 @@ fn managing_multiple_budget_accounts() {
 
 #[test]
 fn allocating_money_behaviour() {
-    let mut _dd = DbDropper::new();
-    let mut budgeting = Budgeting::new();
+    let mut db = memory_db();
+    let mut budgeting = Budgeting::new(db);
     assert!(budgeting.new_budget("main", 10000.).is_ok());
     assert!(budgeting.new_budget("wallet", 7000.).is_ok());
     assert!(budgeting
@@ -63,16 +64,16 @@ fn allocating_money_behaviour() {
 
 #[test]
 fn total_allocation_check() {
-    let mut dd = DbDropper::new();
-    let mut budgeting = Budgeting::new();
+    let mut db = memory_db();
+    let mut budgeting = Budgeting::new(db);
     new_budget_using_budgeting(&mut budgeting);
     assert_eq!(budgeting.total_allocated(), 5000.);
 }
 
 #[test]
 fn total_balance_is_actual_money() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     // a transaction without any category
     let mut tc = blib
@@ -86,8 +87,8 @@ fn total_balance_is_actual_money() {
 
 #[test]
 fn transactions_in_default_category_should_change_balance() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let mut def = blib.new_transaction_to_category(DEFAULT_CATEGORY);
     def.expense(1000.)
@@ -106,8 +107,8 @@ fn transactions_in_default_category_should_change_balance() {
 
 #[test]
 pub fn total_balance_should_be_sum_of_all_categories_balance() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let mut travel = blib.new_transaction_to_category("Travel");
     let mut tb = travel.expense(1000.).payee("Some").note("Other").done();
@@ -117,8 +118,8 @@ pub fn total_balance_should_be_sum_of_all_categories_balance() {
 
 #[test]
 fn finding_category_by_name_in_budget_account() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let bid = blib.current_budget().id();
     {
@@ -139,8 +140,8 @@ fn finding_category_by_name_in_budget_account() {
 
 #[test]
 fn creating_category_and_do_transactions() {
-    let _dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let _home = {
         let home = { blib.create_category("Home", 3000., true).unwrap() };
@@ -171,8 +172,8 @@ fn creating_category_and_do_transactions() {
 
 #[test]
 pub fn spending_from_category() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let bills_available = blib.category_balance("Bills").unwrap();
     assert_eq!(bills_available, BILLS);
@@ -190,8 +191,8 @@ pub fn spending_from_category() {
 
 #[test]
 pub fn funding_category_over_funded() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     blib.new_transaction_to_category("Bills")
         .expense(9000.)
@@ -207,8 +208,8 @@ pub fn funding_category_over_funded() {
 
 #[test]
 pub fn funding_category_good() {
-    let mut dd = DbDropper::new();
-    let mut blib = Budgeting::new();
+    let mut db = memory_db();
+    let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     blib.new_transaction_to_category("Bills")
         .expense(600.)
@@ -222,8 +223,8 @@ pub fn funding_category_good() {
 
 #[test]
 pub fn funding_category_as_much_as_possible() {
-    let mut dd = DbDropper::new();
-    let mut budgeting = Budgeting::new();
+    let mut db = memory_db();
+    let mut budgeting = Budgeting::new(db);
     budgeting
         .new_budget("main", 3000.)
         .expect("Error creating new budget");

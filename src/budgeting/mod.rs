@@ -15,7 +15,9 @@ use diesel::dsl::sum;
 use diesel::{QueryDsl, QueryResult, RunQueryDsl, SqliteConnection};
 use std::borrow::BorrowMut;
 use std::cell::{RefCell, RefMut};
+use std::env;
 use std::ops::DerefMut;
+use dotenvy::dotenv;
 
 pub mod budget_account;
 pub mod budgeting_errors;
@@ -40,8 +42,8 @@ impl Budgeting {
         BudgetAccountModel::find_all(self.conn_mut())
     }
 
-    pub fn new() -> Self {
-        let mut r = RefCell::new(establish_connection());
+    pub fn new(conn: SqliteConnection) -> Self {
+        let mut r = RefCell::new(conn);
         Budgeting {
             conn: r,
             budget: None,
@@ -362,7 +364,8 @@ impl Budgeting {
 
 impl Default for Budgeting {
     fn default() -> Self {
-        Budgeting::new()
+        let conn = establish_connection();
+        Budgeting::new(conn)
     }
 }
 
