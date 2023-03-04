@@ -2,9 +2,7 @@ use crate::budgeting::budget_account::{
     BudgetAccount, BudgetAccountBuilder, BudgetAccountModel, NewBudgetAccount,
 };
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
-use crate::budgeting::transaction::{
-    Transaction, TransactionBuilder, TransactionModel, TransactionType,
-};
+use crate::budgeting::transaction::{Transaction, TransactionBuilder, TransactionForm, TransactionModel, TransactionType};
 use crate::{establish_connection, DEFAULT_CATEGORY};
 use budgeting_errors::BudgetingErrors;
 use budgeting_errors::BudgetingErrors::{
@@ -125,6 +123,13 @@ impl Budgeting {
         CategoryModel::delete(self.conn_mut(), category_id)
     }
 
+    pub fn update_transaction(
+        &mut self,
+        transaction_id: i32,
+        change_set: TransactionForm,
+    ) -> Result<usize, BudgetingErrors> {
+        TransactionModel::update(self.conn_mut(), transaction_id, change_set)
+    }
     /// calculates the amount required to fully fund the category from unallocated balance.
     pub fn calculate_amount_to_fund(
         &mut self,

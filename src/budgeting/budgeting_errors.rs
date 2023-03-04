@@ -26,4 +26,6 @@ pub enum BudgetingErrors {
     UnspecifiedDatabaseError,
     #[error("Transaction not found")]
     TransactionNotFound,
+    #[error("Failed to update transaction")]
+    TransactionUpdateFailed,
 }

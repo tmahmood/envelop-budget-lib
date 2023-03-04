@@ -195,6 +195,19 @@ pub struct TransactionModel<'a> {
 }
 
 impl<'a> TransactionModel<'a> {
+    pub(crate) fn update(conn: &mut SqliteConnection, transaction_id: i32, change_set: TransactionForm) -> Result<usize, BudgetingErrors> {
+        imp_db!(transactions);
+        let r = diesel::update(transactions.find(transaction_id))
+            .set(change_set)
+            .execute(conn);
+        match r {
+            Ok(a) => Ok(a),
+            Err(_) => Err(BudgetingErrors::TransactionUpdateFailed),
+        }
+    }
+}
+
+impl<'a> TransactionModel<'a> {
     pub fn new(conn: &'a mut SqliteConnection, transaction: Transaction) -> Self {
         TransactionModel { transaction, conn }
     }
@@ -291,6 +304,7 @@ pub struct TransactionForm {
     pub payee: Option<String>,
     pub date_created: Option<NaiveDateTime>,
     pub amount: Option<f64>,
+    pub category_id: Option<i32>,
 }
 pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
