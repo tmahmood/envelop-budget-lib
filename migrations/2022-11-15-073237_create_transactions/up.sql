@@ -14,7 +14,6 @@ CREATE TABLE transactions
     date_created         TIMESTAMP        NOT NULL,
     amount               DOUBLE PRECISION NOT NULL,
     category_id          INTEGER          NOT NULL,
-    income               BOOLEAN          NOT NULL DEFAULT 0,
     transaction_type_id  INTEGER          NOT NULL DEFAULT 1,
     transfer_category_id INTEGER                   DEFAULT 0,
     budget_account_id    INTEGER          NOT NULL,

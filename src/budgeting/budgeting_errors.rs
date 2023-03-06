@@ -28,4 +28,6 @@ pub enum BudgetingErrors {
     TransactionNotFound,
     #[error("Failed to update transaction")]
     TransactionUpdateFailed,
+    #[error("Failed to update budget account")]
+    BudgetAccountUpdateFailed,
 }

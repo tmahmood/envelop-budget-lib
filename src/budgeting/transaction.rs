@@ -69,8 +69,6 @@ pub struct Transaction {
     #[diesel(sql_type = Double)]
     amount: f64,
     category_id: i32,
-    #[deprecated]
-    income: bool,
     transfer_type_id: i32,
     transfer_category_id: Option<i32>,
     budget_account_id: i32,
@@ -90,7 +88,6 @@ impl Transaction {
             payee: payee.to_string(),
             note: note.to_string(),
             amount,
-            income: amount > 0.,
             date_created,
             category_id,
             transfer_type_id: 1,
@@ -116,10 +113,6 @@ impl Transaction {
         }
     }
 
-    pub fn income(&self) -> bool {
-        self.income
-    }
-
     pub fn note(&self) -> String {
         self.note.clone()
     }
@@ -129,7 +122,6 @@ impl Transaction {
     }
 
     pub fn set_amount(&mut self, amount: f64) {
-        self.income = amount > 0.;
         self.amount = amount;
     }
 
@@ -291,7 +283,6 @@ pub struct NewTransaction<'a> {
     pub date_created: NaiveDateTime,
     pub amount: f64,
     pub category_id: i32,
-    pub income: bool,
     pub transaction_type_id: i32,
     pub transfer_category_id: Option<i32>,
     pub budget_account_id: i32,
@@ -310,7 +301,6 @@ pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
     payee: Option<&'a str>,
     note: Option<&'a str>,
-    income: Option<bool>,
     date_created: Option<NaiveDateTime>,
     transaction_type: TransactionType,
     category_id: i32,
@@ -325,7 +315,6 @@ impl<'a> TransactionBuilder<'a> {
             amount: None,
             payee: None,
             note: None,
-            income: None,
             date_created: None,
             transaction_type: TransactionType::Expense,
             category_id,
@@ -339,34 +328,29 @@ impl<'a> TransactionBuilder<'a> {
         self.amount = None;
         self.payee = None;
         self.note = None;
-        self.income = None;
         self.date_created = None;
     }
 
     pub fn transfer_from(&mut self, amount: f64) -> &mut Self {
         self.amount = Some(amount);
-        self.income = Some(false);
         self.transaction_type = TransactionType::TransferOut;
         self
     }
 
     pub fn transfer_to(&mut self, amount: f64) -> &mut Self {
         self.amount = Some(amount);
-        self.income = Some(true);
         self.transaction_type = TransactionType::TransferIn;
         self
     }
 
     pub fn expense(&mut self, amount: f64) -> &mut Self {
         self.amount = Some(amount);
-        self.income = Some(false);
         self.transaction_type = TransactionType::Expense;
         self
     }
 
     pub fn income(&mut self, amount: f64) -> &mut Self {
         self.amount = Some(amount);
-        self.income = Some(true);
         self.transaction_type = TransactionType::Income;
         self
     }
@@ -403,7 +387,6 @@ impl<'a> TransactionBuilder<'a> {
             note: self.note.as_ref().unwrap(),
             payee: self.payee.as_ref().unwrap(),
             date_created: self.date_created.unwrap_or_else(current_date),
-            income: self.income.unwrap(),
             amount: signed_amount,
             category_id: self.category_id,
             transaction_type_id: i32::from(self.transaction_type.clone()),

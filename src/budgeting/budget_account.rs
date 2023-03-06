@@ -17,6 +17,12 @@ pub struct BudgetAccount {
     date_created: NaiveDateTime,
 }
 
+#[derive(AsChangeset)]
+#[diesel(table_name = budget_accounts)]
+pub struct BudgetAccountForm {
+    pub filed_as: Option<String>,
+}
+
 pub struct BudgetAccountBuilder<'a> {
     filed_as: String,
     date_created: Option<NaiveDateTime>,
@@ -80,6 +86,19 @@ impl BudgetAccount {
 pub struct BudgetAccountModel<'a> {
     conn: &'a mut SqliteConnection,
     budget_account: BudgetAccount,
+}
+
+impl<'a> BudgetAccountModel<'a> {
+    pub(crate) fn update(conn: &mut SqliteConnection, budget_account_id: i32, _filed_as: Option<String>) -> Result<usize, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        let r = diesel::update(budget_accounts.find(budget_account_id))
+            .set(&BudgetAccountForm { filed_as:  _filed_as })
+            .execute(conn);
+        match r {
+            Ok(a) => Ok(a),
+            Err(_) => Err(BudgetingErrors::BudgetAccountUpdateFailed),
+        }
+    }
 }
 
 
@@ -151,7 +170,6 @@ impl<'a> BudgetAccountModel<'a> {
         self.budget_account = b;
         self.budget_account.clone()
     }
-
 }
 
 #[derive(Default)]

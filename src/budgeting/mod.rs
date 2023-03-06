@@ -110,6 +110,14 @@ impl Budgeting {
         Ok(())
     }
 
+    pub fn update_budget_account(
+        &mut self,
+        budget_account_id: i32,
+        filed_as: Option<String>,
+    ) -> Result<usize, BudgetingErrors> {
+        BudgetAccountModel::update(self.conn_mut(), budget_account_id, filed_as)
+    }
+
     pub fn update_category(
         &mut self,
         category_id: i32,

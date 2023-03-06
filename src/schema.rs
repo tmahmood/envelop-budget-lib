@@ -31,7 +31,6 @@ diesel::table! {
         date_created -> Timestamp,
         amount -> Double,
         category_id -> Integer,
-        income -> Bool,
         transaction_type_id -> Integer,
         transfer_category_id -> Nullable<Integer>,
         budget_account_id -> Integer,
