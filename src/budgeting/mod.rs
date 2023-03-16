@@ -267,6 +267,14 @@ impl Budgeting {
         b.clone()
     }
 
+    pub fn get_first_budget_and_set_as_current(&mut self) -> Result<BudgetAccount, BudgetingErrors> {
+        imp_db!(budget_accounts);
+        match budget_accounts.first::<BudgetAccount>(self.conn_mut()) {
+            Ok(a) => self.set_current_budget(&a.filed_as()),
+            Err(_) => Err(BudgetAccountNotFound)
+        }
+    }
+
     pub fn set_current_budget(&mut self, filed_as: &str) -> Result<BudgetAccount, BudgetingErrors> {
         let b = self.find_budget(filed_as);
         if b.is_err() {
