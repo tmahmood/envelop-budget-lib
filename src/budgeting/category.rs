@@ -170,13 +170,13 @@ impl<'a> CategoryModel<'a> {
             .execute(self.conn)
     }
 
-    pub fn c_balance(conn: &mut SqliteConnection, _budget_account_id: i32, category: &str) -> Result<f64, BudgetingErrors> {
+    pub fn c_balance(conn: &mut SqliteConnection, _budget_account_id: Option<i32>, category: &str) -> Result<f64, BudgetingErrors> {
         let c = CategoryModel::find_by_name(conn, category)?;
         Ok(TransactionModel::total(
             conn,
             None,
             Some(c.id),
-            Some(_budget_account_id),
+            None,
         ))
     }
     pub fn category(&mut self) -> Category {
@@ -213,12 +213,12 @@ impl<'a> CategoryModel<'a> {
         self.find_by_transfer_type(TransactionType::TransferOut)
     }
 
-    pub fn balance(&mut self, _budget_account_id: i32) -> f64 {
+    pub fn balance(&mut self) -> f64 {
         TransactionModel::total(
             self.conn,
             None,
             Some(self.category.id),
-            Some(_budget_account_id),
+            None,
         )
     }
 

@@ -30,4 +30,6 @@ pub enum BudgetingErrors {
     TransactionUpdateFailed,
     #[error("Failed to update budget account")]
     BudgetAccountUpdateFailed,
+    #[error("Only default category can have income transaction type")]
+    OnlyDefaultCategoryCanHaveIncome,
 }

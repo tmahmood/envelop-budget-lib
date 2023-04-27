@@ -107,8 +107,39 @@ mod tests {
     pub const TRAVEL_ID: i32 = 3;
     pub const BILLS: f64 = 2000.;
     pub const TRAVEL: f64 = 3000.;
-    pub const UNUSED: f64 = 5000.;
-    pub const INITIAL: f64 = 10000.;
+    pub const UNUSED: f64 = 10000.;
+    pub const INITIAL: f64 = 15000.;
+
+    #[test]
+    fn new_behavior_test() {
+        let mut db = memory_db();
+        let mut budgeting = Budgeting::new(db);
+
+        test_helpers::new_budget_using_budgeting(&mut budgeting);
+
+        let result = budgeting.category_balance("Bills");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), BILLS);
+
+        budgeting.switch_budget_account("wallet").unwrap();
+
+        budgeting.new_transaction_to_category("Bills")
+            .expense(400.)
+            .payee("Someone")
+            .note("Paid for something from wallet")
+            .done().unwrap();
+
+        budgeting.switch_budget_account("main").unwrap();
+
+        budgeting.new_transaction_to_category("Bills")
+            .expense(600.)
+            .payee("Someone")
+            .note("Paid for something from main")
+            .done().unwrap();
+
+        let result = budgeting.category_balance("Bills");
+        assert_eq!(result.unwrap(), BILLS - 1000.);
+    }
 
     #[test]
     fn transfer_should_not_be_counted_as_income_or_expense() {
@@ -143,6 +174,7 @@ mod tests {
                 .note("Other")
                 .done()
                 .is_ok());
+            // this will be automatically added to default category, not income
             assert!(travel
                 .income(400.)
                 .payee("Other")
@@ -178,12 +210,12 @@ mod tests {
         assert_eq!(blib.actual_total_balance(), INITIAL - 3600. + 5400.);
         assert_eq!(
             blib.category_balance("Travel").unwrap(),
-            TRAVEL - 1000. - 1300. + 400.
+            TRAVEL - 1000. - 1300.
         );
         assert_eq!(blib.category_balance("Bills").unwrap(), BILLS - 300.);
         assert_eq!(
             blib.category_balance(DEFAULT_CATEGORY).unwrap(),
-            INITIAL + 5000. - 1000. - 3000. - 2000.
+            INITIAL + 5000. - 1000. - 3000. - 2000. + 400.
         );
     }
 

@@ -1,7 +1,7 @@
 use crate::budgeting::budgeting_errors::BudgetingErrors;
-use crate::budgeting::category::{Category};
+use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
-use crate::{current_date, parse_date};
+use crate::{current_date, DEFAULT_CATEGORY, parse_date};
 use chrono::{NaiveDateTime};
 use diesel::dsl::sum;
 use diesel::prelude::*;
@@ -26,6 +26,7 @@ impl From<i32> for TransactionType {
         }
     }
 }
+
 impl From<TransactionType> for i32 {
     fn from(t: TransactionType) -> i32 {
         match t {
@@ -49,16 +50,16 @@ impl From<TransactionType> for String {
 }
 
 #[derive(
-    Debug,
-    PartialOrd,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    Default,
-    Clone,
-    Queryable,
-    Associations,
-    Identifiable,
+Debug,
+PartialOrd,
+PartialEq,
+Serialize,
+Deserialize,
+Default,
+Clone,
+Queryable,
+Associations,
+Identifiable,
 )]
 #[diesel(belongs_to(Category))]
 pub struct Transaction {
@@ -297,6 +298,7 @@ pub struct TransactionForm {
     pub amount: Option<f64>,
     pub category_id: Option<i32>,
 }
+
 pub struct TransactionBuilder<'a> {
     amount: Option<f64>,
     payee: Option<&'a str>,
@@ -378,6 +380,10 @@ impl<'a> TransactionBuilder<'a> {
     pub fn done(&mut self) -> Result<Transaction, BudgetingErrors> {
         if self.note.is_none() || self.payee.is_none() || self.amount.is_none() {
             return Err(BudgetingErrors::MissingTransactionFields);
+        }
+        if TransactionType::Income == self.transaction_type{
+            log::warn!("income moved to DEFAULT CATEGORY.");
+            self.category_id = CategoryModel::find_by_name(self.conn, DEFAULT_CATEGORY).unwrap().id();
         }
         let signed_amount = match self.transaction_type {
             TransactionType::Income | TransactionType::TransferIn => self.amount.unwrap(),

@@ -84,7 +84,7 @@ impl Budgeting {
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
     pub fn new_transaction_to_category(&mut self, category: &str) -> TransactionBuilder {
-        let b = self.current_budget();
+        let b = self.current_budget().unwrap();
         let mut _category = self.find_category(category).unwrap();
         TransactionBuilder::new(self.conn_mut(), b.id(), _category.id())
     }
@@ -145,9 +145,8 @@ impl Budgeting {
         dest_category: &str,
         as_much_possible: bool,
     ) -> Result<f64, BudgetingErrors> {
-        let bid = self.current_budget().id();
         let mut cm = self.get_category_model(dest_category);
-        let balance = cm.balance(bid);
+        let balance = cm.balance();
         let allocated = cm.allocated();
         if balance >= allocated {
             return Err(BudgetingErrors::AlreadyFunded);
@@ -248,10 +247,9 @@ impl Budgeting {
     }
 
     pub fn category_balance(&self, category: &str) -> Result<f64, BudgetingErrors> {
-        let bid = self.current_budget().id();
         let mut c = self.conn.borrow_mut();
         let conn = c.deref_mut();
-        CategoryModel::c_balance(conn, bid, category)
+        CategoryModel::c_balance(conn, None, category)
     }
 
     pub fn find_budget(&mut self, _filed_as: &str) -> QueryResult<BudgetAccount> {
@@ -262,27 +260,27 @@ impl Budgeting {
         budget_account
     }
 
-    pub fn current_budget(&self) -> BudgetAccount {
+    pub fn current_budget(&self) -> Option<BudgetAccount> {
+        if self.budget.is_none() {
+            return None;
+        }
         let b = self.budget.as_ref().unwrap();
-        b.clone()
+        Some(b.clone())
     }
 
     pub fn get_first_budget_and_set_as_current(&mut self) -> Result<BudgetAccount, BudgetingErrors> {
         imp_db!(budget_accounts);
         match budget_accounts.first::<BudgetAccount>(self.conn_mut()) {
-            Ok(a) => self.set_current_budget(&a.filed_as()),
+            Ok(a) => {
+                self.set_current_budget(Some(a.clone()));
+                Ok(a)
+            }
             Err(_) => Err(BudgetAccountNotFound)
         }
     }
 
-    pub fn set_current_budget(&mut self, filed_as: &str) -> Result<BudgetAccount, BudgetingErrors> {
-        let b = self.find_budget(filed_as);
-        if b.is_err() {
-            return Err(BudgetAccountNotFound);
-        }
-        let b = b.unwrap();
-        self.budget = Some(b.clone());
-        Ok(b)
+    pub fn set_current_budget(&mut self, budget: Option<BudgetAccount>) {
+        self.budget = budget;
     }
 
     pub fn category_builder(&mut self, category_name: &str) -> CategoryBuilder {
@@ -328,19 +326,26 @@ impl Budgeting {
     /// unallocated balance would be balance unused + all the
     /// transactions in unallocated category
     pub fn actual_total_balance(&mut self) -> f64 {
-        let bid = self.current_budget().id();
-        TransactionModel::total(self.conn_mut(), None, None, Some(bid))
+        let i = TransactionModel::total(
+            self.conn_mut(),
+            Some(TransactionType::Income),
+            None,
+            None);
+        let e = TransactionModel::total(
+            self.conn_mut(),
+            Some(TransactionType::Expense),
+            None,
+            None);
+        i + e
     }
 
     /// returns the total unallocated balance
     pub fn uncategorized_balance(&mut self) -> f64 {
         let c = self.default_category();
-        let bid = self.current_budget().id();
         imp_db!(transactions);
         let result_option = transactions
             .select(sum(amount))
             .filter(category_id.eq(c.id()))
-            .filter(budget_account_id.eq(bid))
             .first::<Option<f64>>(self.conn_mut());
         return_sum!(result_option)
     }
@@ -363,7 +368,7 @@ impl Budgeting {
         } else {
             None
         };
-        let bid = self.current_budget().id();
+        let bid = self.current_budget().unwrap().id();
         Ok(TransactionModel::total(
             self.conn_mut(),
             Some(filter_opt),
@@ -373,7 +378,7 @@ impl Budgeting {
     }
 
     pub fn transactions(&mut self, _category_id: Option<i32>) -> Vec<Transaction> {
-        let bid = Some(self.current_budget().id());
+        let bid = Some(self.current_budget().unwrap().id());
         TransactionModel::find_all(self.conn_mut(), _category_id, bid)
     }
 
