@@ -18,10 +18,10 @@ This library intends to provide APIs to develop a envelop budgeting application.
 
 ## Work in progress
 
--[ ] Rewriting some core calculations.
--[ ] Category calculation should not be dependent on budget account.
--[ ] Categories are only going to be about grouping the expenses,
--[ ] And all the income will go to default category.
+- [ ] Rewriting some core calculations.
+- [ ] Category calculation should not be dependent on budget account.
+- [ ] Categories are only going to be about grouping the expenses,
+- [ ] And all the income will go to default category.
 
 ### Calculating actual_total_balance
 
