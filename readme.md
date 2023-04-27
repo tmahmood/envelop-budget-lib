@@ -9,7 +9,7 @@ This library intends to provide APIs to develop a envelop budgeting application.
 - [x] Categories
 - [x] Transactions grouped by categories and accounts
 - [x] All incomes are automatically ready to assign
-- [.] Envelop budgeting
+- [ ] Envelop budgeting
     - [x] Allocating
     - [x] Funding
     - [x] Transferring funds
