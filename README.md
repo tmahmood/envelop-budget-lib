@@ -33,3 +33,16 @@ Default category will keep track of actual money. All the income/expenses will b
 I will keep track of category funding by transfer in/out. So when we are calculating available money to fund, we can sum all the transfer outs from default category and minus it from `actual_total_balance`. We need to consider how much money we actually have.
 
 `available_to_fund = actual_total_balance - total transfer out from default category`
+
+
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
