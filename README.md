@@ -1,4 +1,7 @@
 # Envelop budget lib
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 A library that uses envelop budgeting to manage expenses.
 
@@ -38,6 +41,20 @@ I will keep track of category funding by transfer in/out. So when we are calcula
 ## Contributors
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/tmahmood"><img src="https://avatars.githubusercontent.com/u/34904?v=4?s=100" width="100px;" alt="Tarin Mahmood"/><br /><sub><b>Tarin Mahmood</b></sub></a><br /><a href="https://github.com/tmahmood/envelop-budget-lib/commits?author=tmahmood" title="Code">💻</a> <a href="https://github.com/tmahmood/envelop-budget-lib/commits?author=tmahmood" title="Documentation">📖</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
 
