@@ -1,17 +1,17 @@
-use std::cell::RefCell;
-use std::ops::DerefMut;
-use std::rc::Rc;
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use crate::schema::categories;
+use crate::DbConnection;
 use diesel::prelude::*;
 use diesel::result::DatabaseErrorKind;
 use diesel::result::Error::DatabaseError;
 use serde::{Deserialize, Serialize};
-use crate::DbConnection;
+use std::cell::RefCell;
+use std::ops::DerefMut;
+use std::rc::Rc;
 
 #[derive(
-Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default, Clone, Queryable, Identifiable,
+    Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default, Clone, Queryable, Identifiable,
 )]
 #[diesel(table_name = categories)]
 pub struct Category {
@@ -104,7 +104,6 @@ impl CategoryBuilder {
     }
 }
 
-
 pub struct CategoryModel {
     conn: DbConnection,
     category: Category,
@@ -134,7 +133,10 @@ impl CategoryModel {
         }
     }
 
-    pub(crate) fn find_by_name(conn: &mut SqliteConnection, _name: &str) -> Result<Category, BudgetingErrors> {
+    pub(crate) fn find_by_name(
+        conn: &mut SqliteConnection,
+        _name: &str,
+    ) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
         match categories.filter(name.eq(_name)).first::<Category>(conn) {
             Ok(c) => Ok(c),
@@ -155,9 +157,14 @@ impl CategoryModel {
         }
     }
 
-    pub(crate) fn load(conn: Rc<RefCell<SqliteConnection>>, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
+    pub(crate) fn load(
+        conn: Rc<RefCell<SqliteConnection>>,
+        cid: i32,
+    ) -> Result<CategoryModel, BudgetingErrors> {
         imp_db!(categories);
-        let res = categories.find(cid).first::<Category>(conn.borrow_mut().deref_mut());
+        let res = categories
+            .find(cid)
+            .first::<Category>(conn.borrow_mut().deref_mut());
         match res {
             Ok(c) => Ok(CategoryModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
@@ -172,14 +179,13 @@ impl CategoryModel {
             .execute(self.conn.borrow_mut().deref_mut())
     }
 
-    pub fn c_balance(conn: &mut SqliteConnection, _budget_account_id: Option<i32>, category: &str) -> Result<f64, BudgetingErrors> {
+    pub fn c_balance(
+        conn: &mut SqliteConnection,
+        _budget_account_id: Option<i32>,
+        category: &str,
+    ) -> Result<f64, BudgetingErrors> {
         let c = CategoryModel::find_by_name(conn, category)?;
-        Ok(TransactionModel::total(
-            conn,
-            None,
-            Some(c.id),
-            None,
-        ))
+        Ok(TransactionModel::total(conn, None, Some(c.id), None))
     }
     pub fn category(&mut self) -> Category {
         imp_db!(categories);
@@ -196,7 +202,12 @@ impl CategoryModel {
     }
 
     pub fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
-        TransactionModel::total(self.conn.borrow_mut().deref_mut(), Some(transfer_type), Some(self.category.id), None)
+        TransactionModel::total(
+            self.conn.borrow_mut().deref_mut(),
+            Some(transfer_type),
+            Some(self.category.id),
+            None,
+        )
     }
 
     pub fn income(&mut self) -> f64 {
@@ -225,7 +236,11 @@ impl CategoryModel {
     }
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
-        TransactionModel::find_all(self.conn.borrow_mut().deref_mut(), Some(self.category.id), None)
+        TransactionModel::find_all(
+            self.conn.borrow_mut().deref_mut(),
+            Some(self.category.id),
+            None,
+        )
     }
 }
 

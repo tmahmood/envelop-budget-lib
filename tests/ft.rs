@@ -1,8 +1,8 @@
+use crate::tests::{BILLS, TRAVEL};
 use diesel::{Connection, RunQueryDsl, SqliteConnection, TextExpressionMethods};
-use rand::Rng;
 use envelop_budget_lib::budgeting::Budgeting;
 use envelop_budget_lib::run_migrations;
-use crate::tests::{BILLS, TRAVEL};
+use rand::Rng;
 
 pub fn generate_random_str(length: usize) -> String {
     let rng = rand::thread_rng();
@@ -13,14 +13,14 @@ pub fn generate_random_str(length: usize) -> String {
 }
 
 pub fn new_budget_using_budgeting(budgeting: &mut Budgeting) {
-    budgeting.new_budget("wallet", 5000.).expect("Error creating new budget");
-    budgeting.new_budget("main", 10000.).expect("Error creating new budget");
     budgeting
-        .create_category("Bills", BILLS, true)
-        .unwrap();
+        .new_budget("wallet", 5000.)
+        .expect("Error creating new budget");
     budgeting
-        .create_category("Travel", TRAVEL, true)
-        .unwrap();
+        .new_budget("main", 10000.)
+        .expect("Error creating new budget");
+    budgeting.create_category("Bills", BILLS, true).unwrap();
+    budgeting.create_category("Travel", TRAVEL, true).unwrap();
 }
 
 pub fn memory_db() -> SqliteConnection {
@@ -28,13 +28,12 @@ pub fn memory_db() -> SqliteConnection {
         .unwrap_or_else(|_| panic!("Failed to load memory db"));
     run_migrations(&mut sqlite).expect("Failed to run migrations");
     sqlite
-
 }
 #[cfg(test)]
 mod tests {
+    use crate::{memory_db, new_budget_using_budgeting};
     use envelop_budget_lib::budgeting::Budgeting;
     use envelop_budget_lib::DEFAULT_CATEGORY;
-    use crate::{memory_db, new_budget_using_budgeting};
 
     // test all the possible things!
     pub const DEFAULT_ID: i32 = 1;
@@ -58,19 +57,23 @@ mod tests {
 
         budgeting.switch_budget_account("wallet").unwrap();
 
-        budgeting.new_transaction_to_category("Bills")
+        budgeting
+            .new_transaction_to_category("Bills")
             .expense(400.)
             .payee("Someone")
             .note("Paid for something from wallet")
-            .done().unwrap();
+            .done()
+            .unwrap();
 
         budgeting.switch_budget_account("main").unwrap();
 
-        budgeting.new_transaction_to_category("Bills")
+        budgeting
+            .new_transaction_to_category("Bills")
             .expense(600.)
             .payee("Someone")
             .note("Paid for something from main")
-            .done().unwrap();
+            .done()
+            .unwrap();
 
         let result = budgeting.category_balance("Bills");
 
@@ -88,7 +91,7 @@ mod tests {
 
     #[test]
     fn creating_budget_and_adding_transaction() {
-        let mut db = memory_db();
+        let db = memory_db();
         let mut blib = Budgeting::new(db);
         new_budget_using_budgeting(&mut blib);
         // initial + allocation to bills + allocation to travel
@@ -154,7 +157,6 @@ mod tests {
             INITIAL + 5000. - 1000. - 3000. - 2000. + 400.
         );
     }
-
 
     #[test]
     fn transfer_fund_from_balance() {

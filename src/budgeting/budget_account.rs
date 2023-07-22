@@ -1,3 +1,4 @@
+use crate::schema::budget_accounts;
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use diesel::SqliteConnection;
@@ -7,7 +8,6 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::schema::budget_accounts;
 
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::{current_date, DbConnection};
@@ -60,7 +60,10 @@ impl BudgetAccountBuilder {
                 .values(new_budget)
                 .execute(conn.deref_mut())
                 .expect("Error saving");
-            budget_accounts.order(id.desc()).limit(1).first::<BudgetAccount>(conn.deref_mut())
+            budget_accounts
+                .order(id.desc())
+                .limit(1)
+                .first::<BudgetAccount>(conn.deref_mut())
         };
         if b.is_err() {
             panic!("Failed to create budget account");
@@ -100,10 +103,16 @@ pub struct BudgetAccountModel {
 }
 
 impl BudgetAccountModel {
-    pub(crate) fn update(conn: &mut SqliteConnection, budget_account_id: i32, _filed_as: Option<String>) -> Result<usize, BudgetingErrors> {
+    pub(crate) fn update(
+        conn: &mut SqliteConnection,
+        budget_account_id: i32,
+        _filed_as: Option<String>,
+    ) -> Result<usize, BudgetingErrors> {
         imp_db!(budget_accounts);
         let r = diesel::update(budget_accounts.find(budget_account_id))
-            .set(&BudgetAccountForm { filed_as: _filed_as })
+            .set(&BudgetAccountForm {
+                filed_as: _filed_as,
+            })
             .execute(conn);
         match r {
             Ok(a) => Ok(a),
@@ -111,7 +120,6 @@ impl BudgetAccountModel {
         }
     }
 }
-
 
 impl BudgetAccountModel {
     pub fn new(conn: DbConnection, budget_account: BudgetAccount) -> Self {
@@ -121,7 +129,9 @@ impl BudgetAccountModel {
         }
     }
 
-    pub(crate) fn find_all(conn: &mut SqliteConnection) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
+    pub(crate) fn find_all(
+        conn: &mut SqliteConnection,
+    ) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
         imp_db!(budget_accounts);
         match budget_accounts.load::<BudgetAccount>(conn) {
             Ok(result) => Ok(result),
@@ -132,12 +142,11 @@ impl BudgetAccountModel {
         }
     }
 
-    pub fn load(
-        conn: DbConnection,
-        bid: i32,
-    ) -> Result<BudgetAccountModel, BudgetingErrors> {
+    pub fn load(conn: DbConnection, bid: i32) -> Result<BudgetAccountModel, BudgetingErrors> {
         imp_db!(budget_accounts);
-        let res = budget_accounts.find(bid).first::<BudgetAccount>((*conn).borrow_mut().deref_mut());
+        let res = budget_accounts
+            .find(bid)
+            .first::<BudgetAccount>((*conn).borrow_mut().deref_mut());
         match res {
             Ok(c) => Ok(BudgetAccountModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
@@ -171,7 +180,6 @@ impl BudgetAccountModel {
             Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
         }
     }
-
 
     pub fn budget_account(&mut self) -> BudgetAccount {
         imp_db!(budget_accounts);

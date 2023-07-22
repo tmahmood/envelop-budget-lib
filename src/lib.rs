@@ -1,17 +1,19 @@
-use std::cell::RefCell;
-use std::env;
-use std::rc::Rc;
 use chrono::{Local, NaiveDateTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use log::{error, info, warn};
+use std::cell::RefCell;
+use std::env;
+use std::rc::Rc;
 
 type DbConnection = Rc<RefCell<SqliteConnection>>;
 
 pub const DEFAULT_CATEGORY: &str = "Unallocated";
 
 macro_rules! gc {
-    ($conn: expr) => {(*$conn).borrow_mut().deref_mut()}
+    ($conn: expr) => {
+        (*$conn).borrow_mut().deref_mut()
+    };
 }
 
 macro_rules! save_model {
@@ -99,4 +101,3 @@ pub fn run_migrations(
     connection.run_pending_migrations(MIGRATIONS)?;
     Ok(())
 }
-

@@ -1,14 +1,14 @@
-use std::cell::RefCell;
-use std::ops::DerefMut;
-use std::rc::Rc;
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
-use crate::{current_date, DbConnection, DEFAULT_CATEGORY, parse_date};
-use chrono::{NaiveDateTime};
+use crate::{current_date, parse_date, DbConnection, DEFAULT_CATEGORY};
+use chrono::NaiveDateTime;
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
+use std::ops::DerefMut;
+use std::rc::Rc;
 
 #[derive(Eq, PartialEq, Clone)]
 pub enum TransactionType {
@@ -53,16 +53,16 @@ impl From<TransactionType> for String {
 }
 
 #[derive(
-Debug,
-PartialOrd,
-PartialEq,
-Serialize,
-Deserialize,
-Default,
-Clone,
-Queryable,
-Associations,
-Identifiable,
+    Debug,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default,
+    Clone,
+    Queryable,
+    Associations,
+    Identifiable,
 )]
 #[diesel(belongs_to(Category))]
 pub struct Transaction {
@@ -191,7 +191,11 @@ pub struct TransactionModel {
 }
 
 impl TransactionModel {
-    pub(crate) fn update(conn: &mut SqliteConnection, transaction_id: i32, change_set: TransactionForm) -> Result<usize, BudgetingErrors> {
+    pub(crate) fn update(
+        conn: &mut SqliteConnection,
+        transaction_id: i32,
+        change_set: TransactionForm,
+    ) -> Result<usize, BudgetingErrors> {
         imp_db!(transactions);
         let r = diesel::update(transactions.find(transaction_id))
             .set(change_set)
@@ -267,7 +271,9 @@ impl TransactionModel {
         transaction_id: i32,
     ) -> Result<TransactionModel, BudgetingErrors> {
         imp_db!(transactions);
-        let res = transactions.find(transaction_id).first::<Transaction>(conn.borrow_mut().deref_mut());
+        let res = transactions
+            .find(transaction_id)
+            .first::<Transaction>(conn.borrow_mut().deref_mut());
         match res {
             Ok(c) => Ok(TransactionModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::TransactionNotFound),
@@ -385,12 +391,11 @@ impl<'a> TransactionBuilder<'a> {
         if self.note.is_none() || self.payee.is_none() || self.amount.is_none() {
             return Err(BudgetingErrors::MissingTransactionFields);
         }
-        if TransactionType::Income == self.transaction_type{
+        if TransactionType::Income == self.transaction_type {
             log::warn!("income moved to DEFAULT CATEGORY.");
-            self.category_id = CategoryModel::find_by_name(
-                gc!(self.conn),
-                DEFAULT_CATEGORY
-            ).unwrap().id();
+            self.category_id = CategoryModel::find_by_name(gc!(self.conn), DEFAULT_CATEGORY)
+                .unwrap()
+                .id();
         }
         let signed_amount = match self.transaction_type {
             TransactionType::Income | TransactionType::TransferIn => self.amount.unwrap(),

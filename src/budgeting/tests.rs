@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_helpers::{new_budget_using_budgeting, memory_db, BILLS, INITIAL, TRAVEL, UNUSED};
+use crate::test_helpers::{memory_db, new_budget_using_budgeting, BILLS, INITIAL, TRAVEL, UNUSED};
 use diesel::prelude::*;
 
 #[test]
@@ -50,9 +50,7 @@ fn allocating_money_behaviour() {
 
     budgeting.new_budget("main", to_main).unwrap();
     budgeting.new_budget("wallet", to_wallet).unwrap();
-    budgeting
-        .create_category("Bills", to_bill, true)
-        .unwrap();
+    budgeting.create_category("Bills", to_bill, true).unwrap();
     budgeting
         .create_category("Travel", to_travel, true)
         .unwrap();
@@ -67,7 +65,10 @@ fn allocating_money_behaviour() {
         .transfer_fund(DEFAULT_CATEGORY, "Travel", 1000.)
         .unwrap();
 
-    assert_eq!(budgeting.uncategorized_balance(), after_transfer_to_category);
+    assert_eq!(
+        budgeting.uncategorized_balance(),
+        after_transfer_to_category
+    );
 }
 
 #[test]
@@ -84,13 +85,16 @@ fn total_balance_is_actual_money() {
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     // a transaction without any category
-    blib
-        .new_transaction_to_category(DEFAULT_CATEGORY)
+    blib.new_transaction_to_category(DEFAULT_CATEGORY)
         .expense(1000.)
         .payee("Some")
         .note("Other")
-        .done().unwrap();
-    assert_eq!(blib.uncategorized_balance(), 15000. - BILLS - TRAVEL - 1000.);
+        .done()
+        .unwrap();
+    assert_eq!(
+        blib.uncategorized_balance(),
+        15000. - BILLS - TRAVEL - 1000.
+    );
 }
 
 #[test]
@@ -109,10 +113,7 @@ fn transactions_in_default_category_should_change_balance() {
         .note("Other")
         .done()
         .unwrap();
-    assert_eq!(
-        blib.actual_total_balance(),
-        INITIAL - 1000. + 5000.
-    );
+    assert_eq!(blib.actual_total_balance(), INITIAL - 1000. + 5000.);
     assert_eq!(blib.category_balance("Bills").unwrap(), 2000.);
 }
 
@@ -122,8 +123,18 @@ pub fn total_balance_should_be_sum_of_all_categories_balance() {
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let mut travel = blib.new_transaction_to_category("Travel");
-    travel.expense(1000.).payee("Some").note("Other").done().unwrap();
-    travel.income(500.).payee("Some").note("Other").done().unwrap();
+    travel
+        .expense(1000.)
+        .payee("Some")
+        .note("Other")
+        .done()
+        .unwrap();
+    travel
+        .income(500.)
+        .payee("Some")
+        .note("Other")
+        .done()
+        .unwrap();
     assert_eq!(blib.actual_total_balance(), INITIAL - 1000. + 500.);
 }
 
