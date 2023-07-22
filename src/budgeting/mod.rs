@@ -68,7 +68,7 @@ impl Budgeting {
     }
 
     /// switch to given budget account
-    pub(crate) fn switch_budget_account(
+    pub fn switch_budget_account(
         &mut self,
         budget_account: &str,
     ) -> Result<(), BudgetingErrors> {

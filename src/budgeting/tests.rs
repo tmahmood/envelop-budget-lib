@@ -1,6 +1,5 @@
 use super::*;
-use crate::test_helpers::{new_budget_using_budgeting, memory_db};
-use crate::tests::{BILLS, INITIAL, TRAVEL, UNUSED};
+use crate::test_helpers::{new_budget_using_budgeting, memory_db, BILLS, INITIAL, TRAVEL, UNUSED};
 use diesel::prelude::*;
 
 #[test]
@@ -40,7 +39,7 @@ fn managing_multiple_budget_accounts() {
 
 #[test]
 fn allocating_money_behaviour() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut budgeting = Budgeting::new(db);
     let to_wallet = 7000.;
     let to_main = 10000.;
@@ -112,7 +111,7 @@ fn transactions_in_default_category_should_change_balance() {
         .unwrap();
     assert_eq!(
         blib.actual_total_balance(),
-        INITIAL -1000. + 5000.
+        INITIAL - 1000. + 5000.
     );
     assert_eq!(blib.category_balance("Bills").unwrap(), 2000.);
 }

@@ -1,8 +1,16 @@
 use diesel::{Connection, RunQueryDsl, SqliteConnection, TextExpressionMethods};
 use rand::Rng;
 use crate::budgeting::Budgeting;
-use crate::{DEFAULT_CATEGORY, establish_connection, run_migrations};
-use crate::tests::{BILLS, TRAVEL};
+use crate::{run_migrations};
+
+// test all the possible things!
+pub const DEFAULT_ID: i32 = 1;
+pub const BILL_ID: i32 = 2;
+pub const TRAVEL_ID: i32 = 3;
+pub const BILLS: f64 = 2000.;
+pub const TRAVEL: f64 = 3000.;
+pub const UNUSED: f64 = 10000.;
+pub const INITIAL: f64 = 15000.;
 
 pub fn generate_random_str(length: usize) -> String {
     let rng = rand::thread_rng();
