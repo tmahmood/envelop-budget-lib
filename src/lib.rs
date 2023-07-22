@@ -1,10 +1,18 @@
+use std::cell::RefCell;
 use std::env;
+use std::rc::Rc;
 use chrono::{Local, NaiveDateTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use log::{error, info, warn};
 
+type DbConnection = Rc<RefCell<SqliteConnection>>;
+
 pub const DEFAULT_CATEGORY: &str = "Unallocated";
+
+macro_rules! gc {
+    ($conn: expr) => {(*$conn).borrow_mut().deref_mut()}
+}
 
 macro_rules! save_model {
     ($conn: ident, $t: ident, $model: ident, $mtype: ident) => {{
@@ -71,6 +79,7 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
     NaiveDateTime::default()
 }
 
+/// creates database connection
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").unwrap();
@@ -79,9 +88,7 @@ pub fn establish_connection() -> SqliteConnection {
 }
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
-
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
-
 pub fn run_migrations(
     connection: &mut impl MigrationHarness<diesel::sqlite::Sqlite>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {

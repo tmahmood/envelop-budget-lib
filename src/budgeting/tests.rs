@@ -135,7 +135,7 @@ fn finding_category_by_name_in_budget_account() {
     let bid = blib.current_budget().unwrap().id();
     {
         let category = blib.find_category("Bills").unwrap();
-        let mut bills = CategoryModel::new(blib.conn_mut(), category);
+        let mut bills = CategoryModel::new(Rc::clone(&blib.conn), category);
         assert_eq!(bills.allocated(), BILLS);
         assert_eq!(bills.balance(), BILLS);
     }

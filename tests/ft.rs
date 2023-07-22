@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn new_behavior_test() {
-        let mut db = memory_db();
+        let db = memory_db();
         let mut budgeting = Budgeting::new(db);
 
         new_budget_using_budgeting(&mut budgeting);
@@ -73,6 +73,7 @@ mod tests {
             .done().unwrap();
 
         let result = budgeting.category_balance("Bills");
+
         assert_eq!(result.unwrap(), BILLS - 1000.);
     }
 

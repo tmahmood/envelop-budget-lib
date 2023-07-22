@@ -4,10 +4,13 @@ use diesel::SqliteConnection;
 use diesel::{Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::ops::{Deref, DerefMut};
+use std::rc::Rc;
 use crate::schema::budget_accounts;
 
 use crate::budgeting::budgeting_errors::BudgetingErrors;
-use crate::current_date;
+use crate::{current_date, DbConnection};
 
 /// Budget is used to store all the transaction categories and store their details in a file
 #[derive(Default, Serialize, Deserialize, Queryable, Debug, Clone)]
@@ -23,14 +26,14 @@ pub struct BudgetAccountForm {
     pub filed_as: Option<String>,
 }
 
-pub struct BudgetAccountBuilder<'a> {
+pub struct BudgetAccountBuilder {
     filed_as: String,
     date_created: Option<NaiveDateTime>,
-    conn: &'a mut SqliteConnection,
+    conn: DbConnection,
 }
 
-impl<'a> BudgetAccountBuilder<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, filed_as: &str) -> BudgetAccountBuilder<'a> {
+impl BudgetAccountBuilder {
+    pub fn new(conn: DbConnection, filed_as: &str) -> BudgetAccountBuilder {
         BudgetAccountBuilder {
             filed_as: filed_as.to_string(),
             date_created: None,
@@ -44,13 +47,21 @@ impl<'a> BudgetAccountBuilder<'a> {
     }
 
     pub fn build(&mut self) -> BudgetAccount {
-        let conn = self.conn.borrow_mut();
         let new_budget = NewBudgetAccount {
             filed_as: &self.filed_as,
             date_created: self.date_created.unwrap_or_else(current_date),
         };
-        let b: QueryResult<BudgetAccount> =
-            save_model!(conn, budget_accounts, new_budget, BudgetAccount);
+        let mut conn = (*self.conn).borrow_mut();
+        let b: QueryResult<BudgetAccount> = {
+            use crate::schema::budget_accounts;
+            use crate::schema::budget_accounts::dsl::*;
+            use diesel::prelude::*;
+            diesel::insert_into(budget_accounts::table)
+                .values(new_budget)
+                .execute(conn.deref_mut())
+                .expect("Error saving");
+            budget_accounts.order(id.desc()).limit(1).first::<BudgetAccount>(conn.deref_mut())
+        };
         if b.is_err() {
             panic!("Failed to create budget account");
         }
@@ -83,16 +94,16 @@ impl BudgetAccount {
     }
 }
 
-pub struct BudgetAccountModel<'a> {
-    conn: &'a mut SqliteConnection,
+pub struct BudgetAccountModel {
+    conn: DbConnection,
     budget_account: BudgetAccount,
 }
 
-impl<'a> BudgetAccountModel<'a> {
+impl BudgetAccountModel {
     pub(crate) fn update(conn: &mut SqliteConnection, budget_account_id: i32, _filed_as: Option<String>) -> Result<usize, BudgetingErrors> {
         imp_db!(budget_accounts);
         let r = diesel::update(budget_accounts.find(budget_account_id))
-            .set(&BudgetAccountForm { filed_as:  _filed_as })
+            .set(&BudgetAccountForm { filed_as: _filed_as })
             .execute(conn);
         match r {
             Ok(a) => Ok(a),
@@ -102,8 +113,8 @@ impl<'a> BudgetAccountModel<'a> {
 }
 
 
-impl<'a> BudgetAccountModel<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, budget_account: BudgetAccount) -> Self {
+impl BudgetAccountModel {
+    pub fn new(conn: DbConnection, budget_account: BudgetAccount) -> Self {
         Self {
             conn,
             budget_account,
@@ -122,11 +133,12 @@ impl<'a> BudgetAccountModel<'a> {
     }
 
     pub fn load(
-        conn: &mut SqliteConnection,
+        conn: DbConnection,
         bid: i32,
     ) -> Result<BudgetAccountModel, BudgetingErrors> {
         imp_db!(budget_accounts);
-        match budget_accounts.find(bid).first::<BudgetAccount>(conn) {
+        let res = budget_accounts.find(bid).first::<BudgetAccount>((*conn).borrow_mut().deref_mut());
+        match res {
             Ok(c) => Ok(BudgetAccountModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
             Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
@@ -165,7 +177,7 @@ impl<'a> BudgetAccountModel<'a> {
         imp_db!(budget_accounts);
         let b = budget_accounts
             .find(self.budget_account.id)
-            .first::<BudgetAccount>(self.conn)
+            .first::<BudgetAccount>((*self.conn).borrow_mut().deref_mut())
             .unwrap();
         self.budget_account = b;
         self.budget_account.clone()

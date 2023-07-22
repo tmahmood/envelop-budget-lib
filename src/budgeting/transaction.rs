@@ -1,7 +1,10 @@
+use std::cell::RefCell;
+use std::ops::DerefMut;
+use std::rc::Rc;
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::budgeting::category::{Category, CategoryModel};
 use crate::schema::transactions;
-use crate::{current_date, DEFAULT_CATEGORY, parse_date};
+use crate::{current_date, DbConnection, DEFAULT_CATEGORY, parse_date};
 use chrono::{NaiveDateTime};
 use diesel::dsl::sum;
 use diesel::prelude::*;
@@ -182,12 +185,12 @@ impl Transaction {
     }
 }
 
-pub struct TransactionModel<'a> {
+pub struct TransactionModel {
     transaction: Transaction,
-    conn: &'a mut SqliteConnection,
+    conn: DbConnection,
 }
 
-impl<'a> TransactionModel<'a> {
+impl TransactionModel {
     pub(crate) fn update(conn: &mut SqliteConnection, transaction_id: i32, change_set: TransactionForm) -> Result<usize, BudgetingErrors> {
         imp_db!(transactions);
         let r = diesel::update(transactions.find(transaction_id))
@@ -200,13 +203,13 @@ impl<'a> TransactionModel<'a> {
     }
 }
 
-impl<'a> TransactionModel<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, transaction: Transaction) -> Self {
+impl TransactionModel {
+    pub fn new(conn: DbConnection, transaction: Transaction) -> Self {
         TransactionModel { transaction, conn }
     }
 
     pub(crate) fn total(
-        conn: &'a mut SqliteConnection,
+        conn: &mut SqliteConnection,
         transfer_type: Option<TransactionType>,
         _category_id: Option<i32>,
         _budget_account_id: Option<i32>,
@@ -227,7 +230,7 @@ impl<'a> TransactionModel<'a> {
     }
 
     pub(crate) fn balance(
-        conn: &'a mut SqliteConnection,
+        conn: &mut SqliteConnection,
         _category_id: Option<i32>,
         _budget_account_id: Option<i32>,
     ) -> f64 {
@@ -244,7 +247,7 @@ impl<'a> TransactionModel<'a> {
     }
 
     pub(crate) fn find_all(
-        conn: &'a mut SqliteConnection,
+        conn: &mut SqliteConnection,
         _category_id: Option<i32>,
         _budget_account_id: Option<i32>,
     ) -> Vec<Transaction> {
@@ -260,11 +263,12 @@ impl<'a> TransactionModel<'a> {
     }
 
     pub(crate) fn load(
-        conn: &mut SqliteConnection,
+        conn: DbConnection,
         transaction_id: i32,
     ) -> Result<TransactionModel, BudgetingErrors> {
         imp_db!(transactions);
-        match transactions.find(transaction_id).first::<Transaction>(conn) {
+        let res = transactions.find(transaction_id).first::<Transaction>(conn.borrow_mut().deref_mut());
+        match res {
             Ok(c) => Ok(TransactionModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::TransactionNotFound),
             Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
@@ -308,11 +312,11 @@ pub struct TransactionBuilder<'a> {
     category_id: i32,
     transfer_category_id: Option<i32>,
     budget_account_id: i32,
-    conn: &'a mut SqliteConnection,
+    conn: DbConnection,
 }
 
 impl<'a> TransactionBuilder<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, budget_account_id: i32, category_id: i32) -> Self {
+    pub fn new(conn: DbConnection, budget_account_id: i32, category_id: i32) -> Self {
         TransactionBuilder {
             amount: None,
             payee: None,
@@ -383,7 +387,10 @@ impl<'a> TransactionBuilder<'a> {
         }
         if TransactionType::Income == self.transaction_type{
             log::warn!("income moved to DEFAULT CATEGORY.");
-            self.category_id = CategoryModel::find_by_name(self.conn, DEFAULT_CATEGORY).unwrap().id();
+            self.category_id = CategoryModel::find_by_name(
+                gc!(self.conn),
+                DEFAULT_CATEGORY
+            ).unwrap().id();
         }
         let signed_amount = match self.transaction_type {
             TransactionType::Income | TransactionType::TransferIn => self.amount.unwrap(),
@@ -402,11 +409,11 @@ impl<'a> TransactionBuilder<'a> {
         imp_db!(transactions);
         diesel::insert_into(transactions::table)
             .values(&new_transaction)
-            .execute(self.conn)?;
+            .execute(gc!(self.conn))?;
         let results = transactions
             .order(id.desc())
             .limit(1)
-            .load::<Transaction>(self.conn)
+            .load::<Transaction>(gc!(self.conn))
             .or_else(|e| Err(BudgetingErrors::TransactionNotFound));
         let k: Option<Transaction> = results?.first().cloned();
         self.reset();

@@ -1,17 +1,17 @@
-use crate::budgeting::budget_account::BudgetAccount;
+use std::cell::RefCell;
+use std::ops::DerefMut;
+use std::rc::Rc;
 use crate::budgeting::budgeting_errors::BudgetingErrors;
-use crate::budgeting::category;
 use crate::budgeting::transaction::{Transaction, TransactionModel, TransactionType};
 use crate::schema::categories;
-use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::result::DatabaseErrorKind;
 use diesel::result::Error::DatabaseError;
-use diesel::sqlite::Sqlite;
 use serde::{Deserialize, Serialize};
+use crate::DbConnection;
 
 #[derive(
-    Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default, Clone, Queryable, Identifiable,
+Debug, PartialOrd, PartialEq, Serialize, Deserialize, Default, Clone, Queryable, Identifiable,
 )]
 #[diesel(table_name = categories)]
 pub struct Category {
@@ -36,10 +36,10 @@ pub struct CategoryForm {
 
 /// Only way to create transaction category.
 /// as we need to maintain the budget_account_id
-pub struct CategoryBuilder<'a> {
+pub struct CategoryBuilder {
     name: String,
     allocated: f64,
-    conn: &'a mut SqliteConnection,
+    conn: DbConnection,
 }
 
 impl Category {
@@ -66,13 +66,14 @@ impl Category {
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
+
     pub fn set_allocated(&mut self, allocated: f64) {
         self.allocated = allocated;
     }
 }
 
-impl<'a> CategoryBuilder<'a> {
-    pub(crate) fn new(conn: &'a mut SqliteConnection, name: &str) -> Self {
+impl CategoryBuilder {
+    pub(crate) fn new(conn: DbConnection, name: &str) -> Self {
         Self {
             name: name.to_string(),
             allocated: 0.0,
@@ -86,7 +87,7 @@ impl<'a> CategoryBuilder<'a> {
     }
 
     // put the transaction category details together and save to database, returned the saved transaction
-    pub fn done(&mut self) -> Result<Category, BudgetingErrors> {
+    pub fn done(&self) -> Result<Category, BudgetingErrors> {
         let mut t = NewTransactionCategory {
             name: self.name.as_str(),
             allocated: self.allocated,
@@ -94,23 +95,23 @@ impl<'a> CategoryBuilder<'a> {
         imp_db!(categories);
         let r = diesel::insert_into(categories::table)
             .values(&t)
-            .execute(self.conn)?;
+            .execute(self.conn.borrow_mut().deref_mut())?;
         let r = categories
             .order(id.desc())
             .limit(1)
-            .first::<Category>(self.conn)?;
+            .first::<Category>(self.conn.borrow_mut().deref_mut())?;
         Ok(r)
     }
 }
 
 
-pub struct CategoryModel<'a> {
-    conn: &'a mut SqliteConnection,
+pub struct CategoryModel {
+    conn: DbConnection,
     category: Category,
 }
 
-impl<'a> CategoryModel<'a> {
-    pub fn new(conn: &'a mut SqliteConnection, category: Category) -> Self {
+impl CategoryModel {
+    pub fn new(conn: Rc<RefCell<SqliteConnection>>, category: Category) -> Self {
         Self { conn, category }
     }
 
@@ -154,9 +155,10 @@ impl<'a> CategoryModel<'a> {
         }
     }
 
-    pub(crate) fn load(conn: &mut SqliteConnection, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
+    pub(crate) fn load(conn: Rc<RefCell<SqliteConnection>>, cid: i32) -> Result<CategoryModel, BudgetingErrors> {
         imp_db!(categories);
-        match categories.find(cid).first::<Category>(conn) {
+        let res = categories.find(cid).first::<Category>(conn.borrow_mut().deref_mut());
+        match res {
             Ok(c) => Ok(CategoryModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
             Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
@@ -167,7 +169,7 @@ impl<'a> CategoryModel<'a> {
         imp_db!(categories);
         diesel::update(categories)
             .set(allocated.eq(new_allocation))
-            .execute(self.conn)
+            .execute(self.conn.borrow_mut().deref_mut())
     }
 
     pub fn c_balance(conn: &mut SqliteConnection, _budget_account_id: Option<i32>, category: &str) -> Result<f64, BudgetingErrors> {
@@ -183,7 +185,7 @@ impl<'a> CategoryModel<'a> {
         imp_db!(categories);
         let c = categories
             .find(self.category.id)
-            .first::<Category>(self.conn)
+            .first::<Category>(self.conn.borrow_mut().deref_mut())
             .unwrap();
         self.category = c;
         self.category.clone()
@@ -194,7 +196,7 @@ impl<'a> CategoryModel<'a> {
     }
 
     pub fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
-        TransactionModel::total(self.conn, Some(transfer_type), Some(self.category.id), None)
+        TransactionModel::total(self.conn.borrow_mut().deref_mut(), Some(transfer_type), Some(self.category.id), None)
     }
 
     pub fn income(&mut self) -> f64 {
@@ -215,7 +217,7 @@ impl<'a> CategoryModel<'a> {
 
     pub fn balance(&mut self) -> f64 {
         TransactionModel::total(
-            self.conn,
+            self.conn.borrow_mut().deref_mut(),
             None,
             Some(self.category.id),
             None,
@@ -223,7 +225,7 @@ impl<'a> CategoryModel<'a> {
     }
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
-        TransactionModel::find_all(self.conn, Some(self.category.id), None)
+        TransactionModel::find_all(self.conn.borrow_mut().deref_mut(), Some(self.category.id), None)
     }
 }
 
