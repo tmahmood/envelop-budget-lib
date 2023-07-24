@@ -6,9 +6,7 @@ use chrono::NaiveDateTime;
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::ops::DerefMut;
-use std::rc::Rc;
 
 #[derive(Eq, PartialEq, Clone)]
 pub enum TransactionType {

@@ -32,4 +32,8 @@ pub enum BudgetingErrors {
     BudgetAccountUpdateFailed,
     #[error("Only default category can have income transaction type")]
     OnlyDefaultCategoryCanHaveIncome,
+    #[error("You need to select a budget account for this operation")]
+    BudgetAccountNotSelected,
+    #[error("Help: {0}")]
+    ReturnWithHelpMessage(String),
 }

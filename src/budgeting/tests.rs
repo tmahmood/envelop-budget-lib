@@ -5,7 +5,7 @@ use diesel::prelude::*;
 #[test]
 fn managing_multiple_budget_accounts() {
     // let mut dd = DbDropper::new();
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
 
     blib.new_budget("savings", 10000.).unwrap();
@@ -21,7 +21,7 @@ fn managing_multiple_budget_accounts() {
     assert_eq!(blib.actual_total_balance(), 15000.);
 
     assert!(blib
-        .new_transaction_to_category("Bills")
+        .new_transaction_to_category("Bills").unwrap()
         .expense(2000.)
         .payee("NO")
         .note("Internet")
@@ -73,7 +73,7 @@ fn allocating_money_behaviour() {
 
 #[test]
 fn total_allocation_check() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut budgeting = Budgeting::new(db);
     new_budget_using_budgeting(&mut budgeting);
     assert_eq!(budgeting.total_allocated(), 5000.);
@@ -81,11 +81,11 @@ fn total_allocation_check() {
 
 #[test]
 fn total_balance_is_actual_money() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     // a transaction without any category
-    blib.new_transaction_to_category(DEFAULT_CATEGORY)
+    blib.new_transaction_to_category(DEFAULT_CATEGORY).unwrap()
         .expense(1000.)
         .payee("Some")
         .note("Other")
@@ -99,10 +99,10 @@ fn total_balance_is_actual_money() {
 
 #[test]
 fn transactions_in_default_category_should_change_balance() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
-    let mut def = blib.new_transaction_to_category(DEFAULT_CATEGORY);
+    let mut def = blib.new_transaction_to_category(DEFAULT_CATEGORY).unwrap();
     def.expense(1000.)
         .payee("Some")
         .note("Other")
@@ -119,10 +119,10 @@ fn transactions_in_default_category_should_change_balance() {
 
 #[test]
 pub fn total_balance_should_be_sum_of_all_categories_balance() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
-    let mut travel = blib.new_transaction_to_category("Travel");
+    let mut travel = blib.new_transaction_to_category("Travel").unwrap();
     travel
         .expense(1000.)
         .payee("Some")
@@ -140,10 +140,10 @@ pub fn total_balance_should_be_sum_of_all_categories_balance() {
 
 #[test]
 fn finding_category_by_name_in_budget_account() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
-    let bid = blib.current_budget().unwrap().id();
+    blib.current_budget().unwrap().id();
     {
         let category = blib.find_category("Bills").unwrap();
         let mut bills = CategoryModel::new(Rc::clone(&blib.conn), category);
@@ -154,7 +154,7 @@ fn finding_category_by_name_in_budget_account() {
 
 #[test]
 fn creating_category_and_do_transactions() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let _home = {
@@ -163,7 +163,7 @@ fn creating_category_and_do_transactions() {
         assert_eq!(blib.category_balance("Home").unwrap(), 3000.0);
         home
     };
-    let mut home_ops = blib.new_transaction_to_category("Home");
+    let mut home_ops = blib.new_transaction_to_category("Home").unwrap();
     home_ops
         .expense(2000.)
         .payee("someone")
@@ -185,13 +185,13 @@ fn creating_category_and_do_transactions() {
 
 #[test]
 pub fn spending_from_category() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
     let bills_available = blib.category_balance("Bills").unwrap();
     assert_eq!(bills_available, BILLS);
     assert_eq!(blib.actual_total_balance(), BILLS + TRAVEL + UNUSED);
-    blib.new_transaction_to_category("Bills")
+    blib.new_transaction_to_category("Bills").unwrap()
         .expense(BILLS)
         .payee("someone")
         .note("test")
@@ -204,10 +204,10 @@ pub fn spending_from_category() {
 
 #[test]
 pub fn funding_category_over_funded() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
-    blib.new_transaction_to_category("Bills")
+    blib.new_transaction_to_category("Bills").unwrap()
         .expense(14000.)
         .payee("someone")
         .note("test")
@@ -221,10 +221,10 @@ pub fn funding_category_over_funded() {
 
 #[test]
 pub fn funding_category_good() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut blib = Budgeting::new(db);
     new_budget_using_budgeting(&mut blib);
-    blib.new_transaction_to_category("Bills")
+    blib.new_transaction_to_category("Bills").unwrap()
         .expense(600.)
         .payee("someone")
         .note("test")
@@ -236,7 +236,7 @@ pub fn funding_category_good() {
 
 #[test]
 pub fn funding_category_as_much_as_possible() {
-    let mut db = memory_db();
+    let db = memory_db();
     let mut budgeting = Budgeting::new(db);
     budgeting
         .new_budget("main", 3000.)
@@ -251,14 +251,14 @@ pub fn funding_category_as_much_as_possible() {
         Ok(3000.)
     );
     budgeting
-        .new_transaction_to_category("Bills")
+        .new_transaction_to_category("Bills").unwrap()
         .expense(600.)
         .payee("someone")
         .note("test")
         .done()
         .expect("Error occurred");
     budgeting
-        .new_transaction_to_category(DEFAULT_CATEGORY)
+        .new_transaction_to_category(DEFAULT_CATEGORY).unwrap()
         .income(3000.)
         .payee("someone")
         .note("test")

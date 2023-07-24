@@ -52,13 +52,12 @@ mod tests {
         new_budget_using_budgeting(&mut budgeting);
 
         let result = budgeting.category_balance("Bills");
-        assert!(result.is_ok());
         assert_eq!(result.unwrap(), BILLS);
 
         budgeting.switch_budget_account("wallet").unwrap();
 
         budgeting
-            .new_transaction_to_category("Bills")
+            .new_transaction_to_category("Bills").unwrap()
             .expense(400.)
             .payee("Someone")
             .note("Paid for something from wallet")
@@ -68,7 +67,7 @@ mod tests {
         budgeting.switch_budget_account("main").unwrap();
 
         budgeting
-            .new_transaction_to_category("Bills")
+            .new_transaction_to_category("Bills").unwrap()
             .expense(600.)
             .payee("Someone")
             .note("Paid for something from main")
@@ -99,52 +98,46 @@ mod tests {
         assert_eq!(blib.actual_total_balance(), INITIAL);
         assert_eq!(blib.uncategorized_balance(), INITIAL - (BILLS + TRAVEL));
         // now let's do some transactions
-        {
-            let mut travel = blib.new_transaction_to_category("Travel");
-            assert!(travel
-                .expense(1000.)
-                .payee("Some")
-                .note("Other")
-                .done()
-                .is_ok());
-            assert!(travel
-                .expense(1300.)
-                .payee("Uber")
-                .note("Other")
-                .done()
-                .is_ok());
-            // this will be automatically added to default category, not income
-            assert!(travel
-                .income(400.)
-                .payee("Other")
-                .note("Other")
-                .done()
-                .is_ok());
-        }
-        {
-            let mut bills = blib.new_transaction_to_category("Bills");
-            assert!(bills
-                .expense(300.)
-                .payee("Some")
-                .note("Other")
-                .done()
-                .is_ok());
-        }
-        {
-            let mut default = blib.new_transaction_to_category(DEFAULT_CATEGORY);
-            assert!(default
-                .expense(1000.)
-                .payee("Other")
-                .note("Other")
-                .done()
-                .is_ok());
-            assert!(default
-                .income(5000.)
-                .payee("Other")
-                .note("Other")
-                .done()
-                .is_ok());
-        }
+        let mut travel = blib.new_transaction_to_category("Travel").unwrap();
+        let mut bills = blib.new_transaction_to_category("Bills").unwrap();
+        let mut default = blib.new_transaction_to_category(DEFAULT_CATEGORY).unwrap();
+        assert!(travel
+            .expense(1000.)
+            .payee("Some")
+            .note("Other")
+            .done()
+            .is_ok());
+        assert!(bills
+            .expense(300.)
+            .payee("Some")
+            .note("Other")
+            .done()
+            .is_ok());
+        assert!(travel
+            .expense(1300.)
+            .payee("Uber")
+            .note("Other")
+            .done()
+            .is_ok());
+        assert!(default
+            .expense(1000.)
+            .payee("Other")
+            .note("Other")
+            .done()
+            .is_ok());
+        // this will be automatically added to default category, not Travel category
+        assert!(travel
+            .income(400.)
+            .payee("Other")
+            .note("Other")
+            .done()
+            .is_ok());
+        assert!(default
+            .income(5000.)
+            .payee("Other")
+            .note("Other")
+            .done()
+            .is_ok());
         // check total balance
         assert_eq!(blib.actual_total_balance(), INITIAL - 3600. + 5400.);
         assert_eq!(
@@ -160,7 +153,7 @@ mod tests {
 
     #[test]
     fn transfer_fund_from_balance() {
-        let mut db = memory_db();
+        let db = memory_db();
         let mut blib = Budgeting::new(db);
         new_budget_using_budgeting(&mut blib);
         assert!(blib.transfer_fund("Bills", "Travel", BILLS).is_ok());
@@ -170,5 +163,34 @@ mod tests {
         //
         assert_eq!(blib.total_expense(Some("Bills")).unwrap(), 0.);
         assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
+    }
+
+    #[test]
+    fn category_selection_error_handling_and_suggestions() {
+        let db = memory_db();
+        let mut budgeting = Budgeting::new(db);
+        new_budget_using_budgeting(&mut budgeting);
+
+        // User wants to add an expense, to a category, and spending from one account
+        // Adds multiple expenses on different categories,
+
+        // user adds an expense to a category named `Travels`
+        let transaction_builder = budgeting
+            .new_transaction_to_category("Travels");
+        // unfortunately the category does not exists, but the error message will help
+        // to figure out what went wrong
+        let e = transaction_builder.err().unwrap();
+        assert_eq!(
+            e.to_string(),
+            r#"Help: Could not find the category "Travels", but these categories are available: Bills, Travel. Closest possible match "travel""#
+        );
+        // now use tries with "travel"
+        let transaction_builder = budgeting
+            .new_transaction_to_category("travel");
+        if let Err(ref e) = transaction_builder {
+            println!("{}", e);
+        }
+        assert!(transaction_builder.is_ok());
+
     }
 }

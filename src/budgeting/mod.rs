@@ -1,5 +1,5 @@
 use crate::budgeting::budget_account::{
-    BudgetAccount, BudgetAccountBuilder, BudgetAccountModel, NewBudgetAccount,
+    BudgetAccount, BudgetAccountBuilder, BudgetAccountModel,
 };
 use crate::budgeting::category::{Category, CategoryBuilder, CategoryModel};
 use crate::budgeting::transaction::{
@@ -7,18 +7,15 @@ use crate::budgeting::transaction::{
 };
 use crate::{establish_connection, DEFAULT_CATEGORY};
 use budgeting_errors::BudgetingErrors;
-use budgeting_errors::BudgetingErrors::{
-    BudgetAccountNotFound, CategoryNotFound, FailedToCreateBudget,
-};
 use diesel::connection::BoxableConnection;
 use diesel::dsl::sum;
-use diesel::{QueryDsl, QueryResult, RunQueryDsl, SqliteConnection};
-use dotenvy::dotenv;
+use diesel::{BoolExpressionMethods, QueryDsl, QueryResult, RunQueryDsl, SqliteConnection};
 use std::borrow::BorrowMut;
-use std::cell::{RefCell, RefMut};
-use std::env;
+use std::cell::{RefCell};
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use crate::speller::Speller;
 
 pub mod budget_account;
 pub mod budgeting_errors;
@@ -39,7 +36,7 @@ pub struct Budgeting {
 impl Budgeting {
     // get all budget accounts
     pub fn budget_accounts(&mut self) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
-        BudgetAccountModel::find_all(self.conn_mut().deref_mut())
+        BudgetAccountModel::find_all(gc!(*self.conn))
     }
 
     pub fn new(conn: SqliteConnection) -> Self {
@@ -55,11 +52,11 @@ impl Budgeting {
     ) -> Result<BudgetAccount, BudgetingErrors> {
         let budget_account = self.find_budget(filed_as);
         if budget_account.is_ok() {
-            return Err(FailedToCreateBudget(filed_as.to_string()));
+            return Err(BudgetingErrors::FailedToCreateBudget(filed_as.to_string()));
         }
         let b = BudgetAccountBuilder::new(Rc::clone(&self.conn), filed_as).build();
         self.budget = Some(b.clone());
-        self.new_transaction_to_category(DEFAULT_CATEGORY)
+        self.new_transaction_to_category(DEFAULT_CATEGORY)?
             .income(amount)
             .payee("Self")
             .note("Initial Balance")
@@ -69,7 +66,7 @@ impl Budgeting {
 
     /// switch to given budget account
     pub fn switch_budget_account(&mut self, budget_account: &str) -> Result<(), BudgetingErrors> {
-        let x = BudgetAccountModel::load_by_name(self.conn_mut().deref_mut(), budget_account);
+        let x = BudgetAccountModel::load_by_name(gc!(*self.conn), budget_account);
         match x {
             Ok(e) => {
                 self.budget = Some(e);
@@ -81,10 +78,39 @@ impl Budgeting {
 
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
-    pub fn new_transaction_to_category(&self, category: &str) -> TransactionBuilder {
-        let b = self.current_budget().unwrap();
-        let mut _category = self.find_category(category).unwrap();
-        TransactionBuilder::new(Rc::clone(&self.conn), b.id(), _category.id())
+    pub fn new_transaction_to_category(&self, category: &str) -> Result<TransactionBuilder, BudgetingErrors> {
+        let b = self.current_budget().ok_or(BudgetingErrors::BudgetAccountNotSelected)?;
+        match self.find_category(category) {
+            Ok(_category) => {
+                Ok(
+                    TransactionBuilder::new(
+                        Rc::clone(&self.conn),
+                        b.id(),
+                        _category.id())
+                )
+            }
+            Err(e) => {
+                if let BudgetingErrors::CategoryNotFound = e {
+                    let list_categories = self.categories()
+                        .iter()
+                        .map(|v| v.name())
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    let mut speller = Speller {
+                        letters: "abcdefghijklmnopqrstuvwxyz".to_string(),
+                        n_words: HashMap::new(),
+                    };
+                    speller.train(&list_categories);
+                    let closest = speller.correct(category);
+                    let msg = format!(
+                        r#"Could not find the category "{category}", but these categories are available: {list_categories}. Closest possible match "{closest}""#
+                    );
+                    Err(BudgetingErrors::ReturnWithHelpMessage(msg))
+                } else {
+                    Err(e)
+                }
+            }
+        }
     }
 
     /// Transfers fund from one category to another
@@ -95,12 +121,12 @@ impl Budgeting {
         amount: f64,
     ) -> Result<(), BudgetingErrors> {
         let k = self
-            .new_transaction_to_category(src)
+            .new_transaction_to_category(src)?
             .transfer_from(amount)
             .payee(dest)
             .note(&format!("Funded"))
             .done()?;
-        self.new_transaction_to_category(dest)
+        self.new_transaction_to_category(dest)?
             .transfer_to(amount)
             .transfer_category_id(k.category_id())
             .payee(src)
@@ -114,7 +140,7 @@ impl Budgeting {
         budget_account_id: i32,
         filed_as: Option<String>,
     ) -> Result<usize, BudgetingErrors> {
-        BudgetAccountModel::update(self.conn_mut().deref_mut(), budget_account_id, filed_as)
+        BudgetAccountModel::update(gc!(*self.conn), budget_account_id, filed_as)
     }
 
     pub fn update_category(
@@ -123,11 +149,11 @@ impl Budgeting {
         name: Option<String>,
         amount: Option<f64>,
     ) -> Result<usize, BudgetingErrors> {
-        CategoryModel::update(self.conn_mut().deref_mut(), category_id, name, amount)
+        CategoryModel::update(gc!(*self.conn), category_id, name, amount)
     }
 
     pub fn delete_category(&mut self, category_id: i32) -> Result<(usize), BudgetingErrors> {
-        CategoryModel::delete(self.conn_mut().deref_mut(), category_id)
+        CategoryModel::delete(gc!(*self.conn), category_id)
     }
 
     pub fn update_transaction(
@@ -135,7 +161,7 @@ impl Budgeting {
         transaction_id: i32,
         change_set: TransactionForm,
     ) -> Result<usize, BudgetingErrors> {
-        TransactionModel::update(self.conn_mut().deref_mut(), transaction_id, change_set)
+        TransactionModel::update(gc!(*self.conn), transaction_id, change_set)
     }
     /// calculates the amount required to fully fund the category from unallocated balance.
     pub fn calculate_amount_to_fund(
@@ -240,21 +266,23 @@ impl Budgeting {
 
     pub fn find_category(&self, category_name: &str) -> Result<Category, BudgetingErrors> {
         imp_db!(categories);
-        let result: QueryResult<Category> = categories
-            .filter(name.eq(category_name))
-            .first(self.conn_mut().deref_mut());
-        result.map_err(|e| CategoryNotFound)
+        let q = categories.filter(
+            crate::m::lower(name)
+                .eq(category_name.to_lowercase())
+        );
+        q.first(gc!(*self.conn))
+            .map_err(|e| BudgetingErrors::CategoryNotFound)
     }
 
     pub fn category_balance(&self, category: &str) -> Result<f64, BudgetingErrors> {
-        CategoryModel::c_balance(self.conn_mut().deref_mut(), None, category)
+        CategoryModel::_balance(gc!(*self.conn), None, category)
     }
 
     pub fn find_budget(&mut self, _filed_as: &str) -> QueryResult<BudgetAccount> {
         imp_db!(budget_accounts);
         let budget_account: QueryResult<BudgetAccount> = budget_accounts
             .filter(filed_as.eq(_filed_as))
-            .first(self.conn_mut().deref_mut());
+            .first(gc!(*self.conn));
         budget_account
     }
 
@@ -270,13 +298,13 @@ impl Budgeting {
         &mut self,
     ) -> Result<BudgetAccount, BudgetingErrors> {
         imp_db!(budget_accounts);
-        let res = budget_accounts.first::<BudgetAccount>(self.conn_mut().deref_mut());
+        let res = budget_accounts.first::<BudgetAccount>(gc!(*self.conn));
         match res {
             Ok(a) => {
                 self.set_current_budget(Some(a.clone()));
                 Ok(a)
             }
-            Err(_) => Err(BudgetAccountNotFound),
+            Err(_) => Err(BudgetingErrors::BudgetAccountNotFound),
         }
     }
 
@@ -293,17 +321,17 @@ impl Budgeting {
     pub fn all_categories(&mut self) -> Vec<Category> {
         imp_db!(categories);
         categories
-            .load::<Category>(self.conn_mut().deref_mut())
+            .load::<Category>(gc!(*self.conn))
             .unwrap()
     }
 
     /// returns all the category except the unallocated category. To get the unallocated category
     /// `uncategorized` method can be used
-    pub fn categories(&mut self) -> Vec<Category> {
+    pub fn categories(&self) -> Vec<Category> {
         imp_db!(categories);
         categories
             .filter(name.ne(DEFAULT_CATEGORY))
-            .load::<Category>(self.conn_mut().deref_mut())
+            .load::<Category>(gc!(*self.conn))
             .unwrap()
     }
 
@@ -312,7 +340,7 @@ impl Budgeting {
         let result_option: QueryResult<Option<f64>> = categories
             .select(sum(allocated))
             .filter(name.ne(DEFAULT_CATEGORY))
-            .first::<Option<f64>>(self.conn_mut().deref_mut());
+            .first::<Option<f64>>(gc!(*self.conn));
         return_sum!(result_option)
     }
 
@@ -320,7 +348,7 @@ impl Budgeting {
         imp_db!(categories);
         categories
             .filter(name.eq(DEFAULT_CATEGORY))
-            .first::<Category>(self.conn_mut().deref_mut())
+            .first::<Category>(gc!(*self.conn))
             .unwrap()
     }
 
@@ -330,13 +358,13 @@ impl Budgeting {
     /// transactions in unallocated category
     pub fn actual_total_balance(&mut self) -> f64 {
         let i = TransactionModel::total(
-            self.conn_mut().deref_mut(),
+            gc!(*self.conn),
             Some(TransactionType::Income),
             None,
             None,
         );
         let e = TransactionModel::total(
-            self.conn_mut().deref_mut(),
+            gc!(*self.conn),
             Some(TransactionType::Expense),
             None,
             None,
@@ -351,7 +379,7 @@ impl Budgeting {
         let result_option = transactions
             .select(sum(amount))
             .filter(category_id.eq(c.id()))
-            .first::<Option<f64>>(self.conn_mut().deref_mut());
+            .first::<Option<f64>>(gc!(*self.conn));
         return_sum!(result_option)
     }
 
@@ -375,7 +403,7 @@ impl Budgeting {
         };
         let bid = self.current_budget().unwrap().id();
         Ok(TransactionModel::total(
-            self.conn_mut().deref_mut(),
+            gc!(*self.conn),
             Some(filter_opt),
             cid,
             Some(bid),
@@ -384,12 +412,9 @@ impl Budgeting {
 
     pub fn transactions(&mut self, _category_id: Option<i32>) -> Vec<Transaction> {
         let bid = Some(self.current_budget().unwrap().id());
-        TransactionModel::find_all(self.conn_mut().deref_mut(), _category_id, bid)
+        TransactionModel::find_all(gc!(*self.conn), _category_id, bid)
     }
 
-    pub(crate) fn conn_mut(&self) -> RefMut<'_, SqliteConnection> {
-        (*self.conn).borrow_mut()
-    }
 }
 
 impl Default for Budgeting {

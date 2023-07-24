@@ -18,6 +18,7 @@ chrono = { version = "0.4.23", default-features = false, features = ["clock", "s
 diesel = { version = "2.0.2", features = ["sqlite", "chrono"] }
 diesel_migrations = "2.0.0"
 dotenvy = "0.15"
+regex = "1.8.1"
 
 [dev-dependencies]
 assert_cmd = "2.0.5"

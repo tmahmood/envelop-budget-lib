@@ -93,13 +93,13 @@ impl CategoryBuilder {
             allocated: self.allocated,
         };
         imp_db!(categories);
-        let r = diesel::insert_into(categories::table)
+        diesel::insert_into(categories::table)
             .values(&t)
-            .execute(self.conn.borrow_mut().deref_mut())?;
+            .execute(gc!(self.conn))?;
         let r = categories
             .order(id.desc())
             .limit(1)
-            .first::<Category>(self.conn.borrow_mut().deref_mut())?;
+            .first::<Category>(gc!(self.conn))?;
         Ok(r)
     }
 }
@@ -176,10 +176,10 @@ impl CategoryModel {
         imp_db!(categories);
         diesel::update(categories)
             .set(allocated.eq(new_allocation))
-            .execute(self.conn.borrow_mut().deref_mut())
+            .execute(gc!(self.conn))
     }
 
-    pub fn c_balance(
+    pub(crate) fn _balance(
         conn: &mut SqliteConnection,
         _budget_account_id: Option<i32>,
         category: &str,
@@ -191,7 +191,7 @@ impl CategoryModel {
         imp_db!(categories);
         let c = categories
             .find(self.category.id)
-            .first::<Category>(self.conn.borrow_mut().deref_mut())
+            .first::<Category>(gc!(self.conn))
             .unwrap();
         self.category = c;
         self.category.clone()
@@ -203,7 +203,7 @@ impl CategoryModel {
 
     pub fn find_by_transfer_type(&mut self, transfer_type: TransactionType) -> f64 {
         TransactionModel::total(
-            self.conn.borrow_mut().deref_mut(),
+            gc!(self.conn),
             Some(transfer_type),
             Some(self.category.id),
             None,
@@ -228,7 +228,7 @@ impl CategoryModel {
 
     pub fn balance(&mut self) -> f64 {
         TransactionModel::total(
-            self.conn.borrow_mut().deref_mut(),
+            gc!(self.conn),
             None,
             Some(self.category.id),
             None,
@@ -237,7 +237,7 @@ impl CategoryModel {
 
     pub fn transactions(&mut self) -> Vec<Transaction> {
         TransactionModel::find_all(
-            self.conn.borrow_mut().deref_mut(),
+            gc!(self.conn),
             Some(self.category.id),
             None,
         )

@@ -12,7 +12,7 @@ pub const DEFAULT_CATEGORY: &str = "Unallocated";
 
 macro_rules! gc {
     ($conn: expr) => {
-        (*$conn).borrow_mut().deref_mut()
+        $conn.borrow_mut().deref_mut()
     };
 }
 
@@ -45,6 +45,12 @@ macro_rules! imp_db {
         use diesel::prelude::*;
     };
 }
+
+pub(crate) mod m {
+    use diesel::sql_function;
+    sql_function! {fn lower(a: diesel::sql_types::Text) -> diesel::sql_types::Text}
+}
+
 ///
 /// # Envelope budgeting
 /// * We create categories and have budget for every category
@@ -52,6 +58,7 @@ macro_rules! imp_db {
 /// * We can transfer money from one category to other
 ///
 pub mod budgeting;
+pub mod speller;
 pub mod schema;
 #[cfg(test)]
 mod test_helpers;
