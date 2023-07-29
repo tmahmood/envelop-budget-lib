@@ -1,5 +1,5 @@
 use crate::tests::{BILLS, TRAVEL};
-use diesel::{Connection, RunQueryDsl, SqliteConnection, TextExpressionMethods};
+use diesel::{Connection, SqliteConnection};
 use envelop_budget_lib::budgeting::Budgeting;
 use envelop_budget_lib::run_migrations;
 use rand::Rng;
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn transfer_should_not_be_counted_as_income_or_expense() {
-        let mut db = memory_db();
+        let db = memory_db();
         let mut blib = Budgeting::new(db);
         new_budget_using_budgeting(&mut blib);
         assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
