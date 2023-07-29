@@ -7,6 +7,7 @@ use diesel::dsl::sum;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::ops::DerefMut;
+use tracing::warn;
 
 #[derive(Eq, PartialEq, Clone)]
 pub enum TransactionType {
@@ -390,7 +391,7 @@ impl<'a> TransactionBuilder<'a> {
             return Err(BudgetingErrors::MissingTransactionFields);
         }
         if TransactionType::Income == self.transaction_type {
-            log::warn!("income moved to DEFAULT CATEGORY.");
+            warn!("income moved to DEFAULT CATEGORY.");
             self.category_id = CategoryModel::find_by_name(gc!(self.conn), DEFAULT_CATEGORY)
                 .unwrap()
                 .id();

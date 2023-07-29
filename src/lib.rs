@@ -1,7 +1,7 @@
 use chrono::{Local, NaiveDateTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
-use log::{error, info, warn};
+use tracing::{error, instrument};
 use std::cell::RefCell;
 use std::env;
 use std::rc::Rc;
@@ -58,8 +58,8 @@ pub(crate) mod m {
 /// * We can transfer money from one category to other
 ///
 pub mod budgeting;
-pub mod speller;
 pub mod schema;
+pub(crate) mod speller;
 #[cfg(test)]
 mod test_helpers;
 
@@ -68,21 +68,18 @@ pub fn current_date() -> NaiveDateTime {
     Local::now().naive_local()
 }
 
+#[tracing::instrument]
 pub fn parse_date(date_created: &str) -> NaiveDateTime {
-    let f1 = "%Y-%m-%d %H:%M:%S%.f";
-    let f2 = "%Y-%m-%d %H:%M:%S";
-    let f3 = "%Y-%m-%d";
-    let k = NaiveDateTime::parse_from_str(date_created, f1);
-    if let Ok(n) = k {
-        return n;
-    }
-    let k = NaiveDateTime::parse_from_str(date_created, f2);
-    if let Ok(n) = k {
-        return n;
-    }
-    let k = NaiveDateTime::parse_from_str(date_created, f3);
-    if let Ok(n) = k {
-        return n;
+    let formats = vec![
+        "%Y-%m-%d %H:%M:%S%.f",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d"
+    ];
+    for format in formats {
+        let k = NaiveDateTime::parse_from_str(date_created, format);
+        if let Ok(n) = k {
+            return n;
+        }
     }
     error!("Invalid date provided");
     NaiveDateTime::default()

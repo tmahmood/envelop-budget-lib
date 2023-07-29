@@ -147,7 +147,7 @@ impl Budgeting {
         CategoryModel::update(gc!(*self.conn), category_id, name, amount)
     }
 
-    pub fn delete_category(&mut self, category_id: i32) -> Result<(usize), BudgetingErrors> {
+    pub fn delete_category(&mut self, category_id: i32) -> Result<usize, BudgetingErrors> {
         CategoryModel::delete(gc!(*self.conn), category_id)
     }
 
