@@ -1,4 +1,6 @@
-#[derive(thiserror::Error, Debug, Clone, PartialEq)]
+use diesel::result::DatabaseErrorKind;
+
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum BudgetingErrors {
     #[error("Error transferring fund from one category to other")]
     FundTransferError,
@@ -23,7 +25,7 @@ pub enum BudgetingErrors {
     #[error("Not all transaction fields are provided")]
     MissingTransactionFields,
     #[error("Unspecified Database Error")]
-    UnspecifiedDatabaseError,
+    UnspecifiedDatabaseError(diesel::result::Error),
     #[error("Transaction not found")]
     TransactionNotFound,
     #[error("Failed to update transaction")]
@@ -32,7 +34,7 @@ pub enum BudgetingErrors {
     BudgetAccountUpdateFailed,
     #[error("Only default category can have income transaction type")]
     OnlyDefaultCategoryCanHaveIncome,
-    #[error("You need to select a budget account for this operation")]
+    #[error("You need to select a budget account for this action")]
     BudgetAccountNotSelected,
     #[error("Help: {0}")]
     ReturnWithHelpMessage(String),

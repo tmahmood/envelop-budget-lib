@@ -165,32 +165,73 @@ mod tests {
         assert_eq!(blib.total_income(Some("Bills")).unwrap(), 0.);
     }
 
+
+    // Providing better error contexts
+
     #[test]
     fn category_selection_error_handling_and_suggestions() {
         let db = memory_db();
         let mut budgeting = Budgeting::new(db);
         new_budget_using_budgeting(&mut budgeting);
+        budgeting.set_current_budget(None);
 
-        // User wants to add an expense, to a category, and spending from one account
-        // Adds multiple expenses on different categories,
-
-        // user adds an expense to a category named `Travels`
+        // user tries to add an expense to a category named `Travels`
         let transaction_builder = budgeting
             .new_transaction_to_category("Travels");
-        // unfortunately the category does not exists, but the error message will help
+        // For transaction to work, user must select a budget account, as no budget account is set
+        // User gets an error
+        let e = transaction_builder.err().unwrap();
+        assert_eq!(
+            e.to_string(),
+            r#"You need to select a budget account for this action"#
+        );
+        let b = budgeting.find_budget("wallets");
+        let e = b.err().unwrap();
+        assert_eq!(
+            e.to_string(),
+            r#"Help: Could not find the account "wallets", but these accounts are available: wallet, main. Closest possible match "wallet""#
+        );
+
+        // now user selects the 'wallet' account
+        let b = budgeting.find_budget("wallet").unwrap();
+        budgeting.set_current_budget(Some(b));
+        // lets try again
+        let transaction_builder = budgeting
+            .new_transaction_to_category("Travels");
+        // Unfortunately the category does not exists, but the error message will help well,
         // to figure out what went wrong
         let e = transaction_builder.err().unwrap();
         assert_eq!(
             e.to_string(),
             r#"Help: Could not find the category "Travels", but these categories are available: Bills, Travel. Closest possible match "travel""#
         );
-        // now use tries with "travel"
-        let transaction_builder = budgeting
-            .new_transaction_to_category("travel");
-        if let Err(ref e) = transaction_builder {
-            println!("{}", e);
-        }
-        assert!(transaction_builder.is_ok());
-
+        // now user adds some transactions
+        budgeting
+            .new_transaction_to_category("travel").unwrap()
+            .expense(400.)
+            .payee("Tea stall by the road")
+            .note("Stopped for tea")
+            .done()
+            .expect("Failed to add transaction");
+        budgeting.new_transaction_to_category("travel").unwrap()
+            .expense(500.)
+            .payee("Highway Inn")
+            .note("Bus stop")
+            .done()
+            .expect("Failed to add transaction");
+        budgeting.new_transaction_to_category("travel").unwrap()
+            .expense(2100.)
+            .payee("Hotel")
+            .note("Staying")
+            .done()
+            .expect("Failed to add transaction");
+        // user have spent all of his allocated budget in travel
+        // so this one will go to negative
+        budgeting.new_transaction_to_category("travel").unwrap()
+            .expense(2100.)
+            .payee("Hotel")
+            .note("Breakfast")
+            .done()
+            .unwrap();
     }
 }

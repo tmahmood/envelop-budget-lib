@@ -86,7 +86,7 @@ impl CategoryBuilder {
         self
     }
 
-    // put the transaction category details together and save to database, returned the saved transaction
+    // put the transaction category details together and save to database, returned the new category
     pub fn done(&self) -> Result<Category, BudgetingErrors> {
         let mut t = NewTransactionCategory {
             name: self.name.as_str(),
@@ -96,11 +96,11 @@ impl CategoryBuilder {
         diesel::insert_into(categories::table)
             .values(&t)
             .execute(gc!(self.conn))?;
-        let r = categories
+        let category = categories
             .order(id.desc())
             .limit(1)
             .first::<Category>(gc!(self.conn))?;
-        Ok(r)
+        Ok(category)
     }
 }
 
@@ -141,7 +141,7 @@ impl CategoryModel {
         match categories.filter(name.eq(_name)).first::<Category>(conn) {
             Ok(c) => Ok(c),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
@@ -168,7 +168,7 @@ impl CategoryModel {
         match res {
             Ok(c) => Ok(CategoryModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::CategoryNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
@@ -253,9 +253,9 @@ impl From<diesel::result::Error> for BudgetingErrors {
                 DatabaseErrorKind::ForeignKeyViolation => {
                     BudgetingErrors::FailedToCreateCategory("Foreign Key Violation".to_string())
                 }
-                _ => BudgetingErrors::UnspecifiedDatabaseError,
+                _ => BudgetingErrors::UnspecifiedDatabaseError(value),
             },
-            _ => BudgetingErrors::UnspecifiedDatabaseError,
+            _ => BudgetingErrors::UnspecifiedDatabaseError(value),
         };
     }
 }

@@ -22,20 +22,14 @@ pub mod budgeting_errors;
 pub mod category;
 pub mod transaction;
 
-mod builder {
-    pub trait Builder {
-        fn build(&self) -> Self;
-    }
-}
-
 pub struct Budgeting {
     conn: Rc<RefCell<SqliteConnection>>,
     budget: Option<BudgetAccount>,
 }
 
 impl Budgeting {
-    // get all budget accounts
-    pub fn budget_accounts(&mut self) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
+    /// get all budget accounts
+    pub fn budget_accounts(&self) -> Result<Vec<BudgetAccount>, BudgetingErrors> {
         BudgetAccountModel::find_all(gc!(*self.conn))
     }
 
@@ -79,7 +73,8 @@ impl Budgeting {
     /// Starts a new transaction belonging to given category.
     /// it's not completed until `done` method is called
     pub fn new_transaction_to_category(&self, category: &str) -> Result<TransactionBuilder, BudgetingErrors> {
-        let b = self.current_budget().ok_or(BudgetingErrors::BudgetAccountNotSelected)?;
+        let b = self.current_budget()
+            .ok_or(BudgetingErrors::BudgetAccountNotSelected)?;
         match self.find_category(category) {
             Ok(_category) => {
                 Ok(
@@ -278,12 +273,32 @@ impl Budgeting {
         CategoryModel::_balance(gc!(*self.conn), None, category)
     }
 
-    pub fn find_budget(&mut self, _filed_as: &str) -> QueryResult<BudgetAccount> {
+    pub fn find_budget(&self, _filed_as: &str) -> Result<BudgetAccount, BudgetingErrors> {
         imp_db!(budget_accounts);
-        let budget_account: QueryResult<BudgetAccount> = budget_accounts
+        let res: QueryResult<BudgetAccount> = budget_accounts
             .filter(filed_as.eq(_filed_as))
             .first(gc!(*self.conn));
-        budget_account
+        match res {
+            Ok(budget_account) => Ok(budget_account),
+            Err(diesel::result::Error::NotFound) => {
+                let list_accounts = self.budget_accounts().unwrap()
+                    .iter()
+                    .map(|v| v.filed_as())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let mut speller = Speller {
+                    letters: "abcdefghijklmnopqrstuvwxyz".to_string(),
+                    n_words: HashMap::new(),
+                };
+                speller.train(&list_accounts);
+                let closest = speller.correct(_filed_as);
+                let msg = format!(
+                    r#"Could not find the account "{_filed_as}", but these accounts are available: {list_accounts}. Closest possible match "{closest}""#
+                );
+                Err(BudgetingErrors::ReturnWithHelpMessage(msg))
+            },
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
+        }
     }
 
     pub fn current_budget(&self) -> Option<BudgetAccount> {
@@ -293,6 +308,7 @@ impl Budgeting {
         let b = self.budget.as_ref().unwrap();
         Some(b.clone())
     }
+
 
     pub fn get_first_budget_and_set_as_current(
         &mut self,

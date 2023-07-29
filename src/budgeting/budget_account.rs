@@ -136,8 +136,7 @@ impl BudgetAccountModel {
         match budget_accounts.load::<BudgetAccount>(conn) {
             Ok(result) => Ok(result),
             Err(e) => {
-                println!("{e:?}");
-                Err(BudgetingErrors::UnspecifiedDatabaseError)
+                Err(BudgetingErrors::UnspecifiedDatabaseError(e))
             }
         }
     }
@@ -150,7 +149,7 @@ impl BudgetAccountModel {
         match res {
             Ok(c) => Ok(BudgetAccountModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
@@ -162,7 +161,7 @@ impl BudgetAccountModel {
         match budget_accounts.find(bid).first::<BudgetAccount>(conn) {
             Ok(c) => Ok(c),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
@@ -177,19 +176,10 @@ impl BudgetAccountModel {
         {
             Ok(c) => Ok(c),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::BudgetAccountNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
-    pub fn budget_account(&mut self) -> BudgetAccount {
-        imp_db!(budget_accounts);
-        let b = budget_accounts
-            .find(self.budget_account.id)
-            .first::<BudgetAccount>((*self.conn).borrow_mut().deref_mut())
-            .unwrap();
-        self.budget_account = b;
-        self.budget_account.clone()
-    }
 }
 
 #[derive(Default)]

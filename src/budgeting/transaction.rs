@@ -275,7 +275,7 @@ impl TransactionModel {
         match res {
             Ok(c) => Ok(TransactionModel::new(conn, c)),
             Err(diesel::result::Error::NotFound) => Err(BudgetingErrors::TransactionNotFound),
-            Err(_) => Err(BudgetingErrors::UnspecifiedDatabaseError),
+            Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
 
@@ -418,12 +418,8 @@ impl<'a> TransactionBuilder<'a> {
             .limit(1)
             .load::<Transaction>(gc!(self.conn))
             .or_else(|e| Err(BudgetingErrors::TransactionNotFound));
-        let k: Option<Transaction> = results?.first().cloned();
+        let transaction: Option<Transaction> = results?.first().cloned();
         self.reset();
-        if k.is_some() {
-            Ok(k.unwrap())
-        } else {
-            Err(BudgetingErrors::TransactionNotFound)
-        }
+        transaction.ok_or(BudgetingErrors::TransactionNotFound)
     }
 }
