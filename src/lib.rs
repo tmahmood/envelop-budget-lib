@@ -86,11 +86,17 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
 }
 
 /// creates database connection
+// TODO: should return a result object instead of connection for error handling
 pub fn establish_connection() -> SqliteConnection {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").unwrap();
     SqliteConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+        .unwrap_or_else(|_| {
+            error!(
+                "Error connecting to {}, Please check your DATABASE_URL env variable",
+                database_url);
+            panic!("Exiting due to unrecoverable error")
+        })
 }
 
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
