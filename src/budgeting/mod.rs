@@ -282,7 +282,7 @@ impl Budgeting {
             Ok(budget_account) => Ok(budget_account),
             Err(diesel::result::Error::NotFound) => {
                 let _budget_accounts = self.budget_accounts().unwrap();
-                let msg = if _budget_accounts.len() == 0 {
+                let msg = if _budget_accounts.len() != 0 {
                     let list_accounts = _budget_accounts
                         .iter()
                         .map(|v| v.filed_as())
