@@ -39,28 +39,3 @@ pub enum BudgetingErrors {
     #[error("Help: {0}")]
     ReturnWithHelpMessage(String),
 }
-
-impl From<BudgetingErrors> for String {
-    fn from(value: BudgetingErrors) -> Self {
-        match value {
-            BudgetingErrors::BudgetAccountNotFound => "E0001".to_string(),
-            BudgetingErrors::CategoryNotFound => "E0002".to_string(),
-            BudgetingErrors::FailedToCreateBudget(_) => "E0003".to_string(),
-            BudgetingErrors::BudgetAccountNotSelected => "E0004".to_string(),
-            BudgetingErrors::CategoryAlreadyExists => "E0005".to_string(),
-            BudgetingErrors::FundTransferError => "E0006".to_string(),
-            BudgetingErrors::CategoryUpdateFailed => "E0007".to_string(),
-            BudgetingErrors::CategoryDeleteFailed => "E0008".to_string(),
-            BudgetingErrors::FailedToCreateCategory(_) => "E0009".to_string(),
-            BudgetingErrors::OverFundingError => "E0010".to_string(),
-            BudgetingErrors::AlreadyFunded => "E0011".to_string(),
-            BudgetingErrors::MissingTransactionFields => "E0012".to_string(),
-            BudgetingErrors::UnspecifiedDatabaseError(_) => "E0013".to_string(),
-            BudgetingErrors::TransactionNotFound => "E0014".to_string(),
-            BudgetingErrors::TransactionUpdateFailed => "E0015".to_string(),
-            BudgetingErrors::BudgetAccountUpdateFailed => "E0016".to_string(),
-            BudgetingErrors::OnlyDefaultCategoryCanHaveIncome => "E0017".to_string(),
-            BudgetingErrors::ReturnWithHelpMessage(_) => "E0018".to_string(),
-        }
-    }
-}
