@@ -281,22 +281,29 @@ impl Budgeting {
         match res {
             Ok(budget_account) => Ok(budget_account),
             Err(diesel::result::Error::NotFound) => {
-                let list_accounts = self.budget_accounts().unwrap()
-                    .iter()
-                    .map(|v| v.filed_as())
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                let mut speller = Speller {
-                    letters: "abcdefghijklmnopqrstuvwxyz".to_string(),
-                    n_words: HashMap::new(),
+                let _budget_accounts = self.budget_accounts().unwrap();
+                let msg = if _budget_accounts.len() == 0 {
+                    let list_accounts = _budget_accounts
+                        .iter()
+                        .map(|v| v.filed_as())
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    let mut speller = Speller {
+                        letters: "abcdefghijklmnopqrstuvwxyz".to_string(),
+                        n_words: HashMap::new(),
+                    };
+                    speller.train(&list_accounts);
+                    let closest = speller.correct(_filed_as);
+                    format!(
+                        r#"Could not find the account {_filed_as}, but these accounts are available: {list_accounts}. Closest possible match {closest}"#
+                    )
+                } else {
+                    format!(
+                        r#"There are no budget account available, please create one"#
+                    )
                 };
-                speller.train(&list_accounts);
-                let closest = speller.correct(_filed_as);
-                let msg = format!(
-                    r#"Could not find the account "{_filed_as}", but these accounts are available: {list_accounts}. Closest possible match "{closest}""#
-                );
                 Err(BudgetingErrors::ReturnWithHelpMessage(msg))
-            },
+            }
             Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
@@ -430,7 +437,6 @@ impl Budgeting {
         let bid = Some(self.current_budget().unwrap().id());
         TransactionModel::find_all(gc!(*self.conn), _category_id, bid)
     }
-
 }
 
 impl Default for Budgeting {
