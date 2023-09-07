@@ -1,13 +1,16 @@
-use chrono::{Local, NaiveDateTime};
+use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime};
 use diesel::prelude::*;
 use dotenvy::dotenv;
-use tracing::{error, instrument};
+use tracing::error;
 use std::cell::RefCell;
 use std::env;
 use std::rc::Rc;
+use std::str::FromStr;
+
+pub use diesel::SqliteConnection;
 
 type DbConnection = Rc<RefCell<SqliteConnection>>;
-
+pub type Currency = f64;
 pub const DEFAULT_CATEGORY: &str = "Unallocated";
 
 macro_rules! gc {
@@ -17,15 +20,17 @@ macro_rules! gc {
 }
 
 macro_rules! save_model {
-    ($conn: ident, $t: ident, $model: ident, $mtype: ident) => {{
-        use crate::schema::$t;
-        use crate::schema::$t::dsl::*;
+    ($conn: expr, $schema: ident, $model: ident, $mtype: ident) => {{
+        use crate::schema::$schema;
+        use crate::schema::$schema::dsl::*;
         use diesel::prelude::*;
-        diesel::insert_into($t::table)
+        diesel::insert_into($schema::table)
             .values($model)
-            .execute($conn)
-            .expect("Error saving");
-        $t.order(id.desc()).limit(1).first::<$mtype>($conn)
+            .execute($conn)?;
+        $schema
+            .order(id.desc())
+            .limit(1)
+            .first::<$mtype>($conn)
     }};
 }
 
@@ -73,22 +78,27 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
     let formats = vec![
         "%Y-%m-%d %H:%M:%S%.f",
         "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d"
     ];
     for format in formats {
-        let k = NaiveDateTime::parse_from_str(date_created, format);
-        if let Ok(n) = k {
+        if let Ok(n) = NaiveDateTime::parse_from_str(
+            date_created, format
+        ) {
             return n;
         }
     }
-    error!("Invalid date provided");
+    if let Ok(n) = NaiveDate::parse_from_str(date_created, "%Y-%m-%d") {
+        let s = NaiveTime::from_str("00:00:00").unwrap();
+        return NaiveDateTime::new(
+            n, s
+        );
+    }
+    error!("Invalid date provided {}", date_created);
     NaiveDateTime::default()
 }
 
 /// creates database connection
 // TODO: should return a result object instead of connection for error handling
 pub fn establish_connection() -> SqliteConnection {
-    dotenv().ok();
     let database_url = env::var("DATABASE_URL").unwrap();
     SqliteConnection::establish(&database_url)
         .unwrap_or_else(|_| {

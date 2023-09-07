@@ -93,13 +93,9 @@ impl CategoryBuilder {
             allocated: self.allocated,
         };
         imp_db!(categories);
-        diesel::insert_into(categories::table)
-            .values(&t)
-            .execute(gc!(self.conn))?;
-        let category = categories
-            .order(id.desc())
-            .limit(1)
-            .first::<Category>(gc!(self.conn))?;
+        let category = save_model!(
+            gc!(self.conn), categories, t, Category
+        )?;
         Ok(category)
     }
 }

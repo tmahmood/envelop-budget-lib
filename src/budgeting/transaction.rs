@@ -410,17 +410,17 @@ impl<'a> TransactionBuilder<'a> {
             transfer_category_id: self.transfer_category_id,
             budget_account_id: self.budget_account_id,
         };
-        imp_db!(transactions);
-        diesel::insert_into(transactions::table)
-            .values(&new_transaction)
-            .execute(gc!(self.conn))?;
-        let results = transactions
-            .order(id.desc())
-            .limit(1)
-            .load::<Transaction>(gc!(self.conn))
-            .or_else(|e| Err(BudgetingErrors::TransactionNotFound));
-        let transaction: Option<Transaction> = results?.first().cloned();
+        let transaction = save_model!(
+            gc!(self.conn),
+            transactions,
+            new_transaction,
+            Transaction).map_err(|e| {
+            match e {
+                diesel::result::Error::NotFound => BudgetingErrors::TransactionNotFound,
+                e => BudgetingErrors::UnspecifiedDatabaseError(e)
+            }
+        });
         self.reset();
-        transaction.ok_or(BudgetingErrors::TransactionNotFound)
+        transaction
     }
 }

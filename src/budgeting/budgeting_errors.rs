@@ -1,4 +1,4 @@
-use diesel::result::DatabaseErrorKind;
+use diesel::result::Error as DieselError;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum BudgetingErrors {
@@ -25,7 +25,7 @@ pub enum BudgetingErrors {
     #[error("Not all transaction fields are provided")]
     MissingTransactionFields,
     #[error("Unspecified Database Error")]
-    UnspecifiedDatabaseError(diesel::result::Error),
+    UnspecifiedDatabaseError(DieselError),
     #[error("Transaction not found")]
     TransactionNotFound,
     #[error("Failed to update transaction")]

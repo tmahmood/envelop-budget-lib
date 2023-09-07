@@ -189,7 +189,7 @@ mod tests {
         let e = b.err().unwrap();
         assert_eq!(
             e.to_string(),
-            r#"Help: Could not find the account "wallets", but these accounts are available: wallet, main. Closest possible match "wallet""#
+            r#"Help: Could not find the account wallets, but these accounts are available: wallet, main. Closest possible match wallet"#
         );
 
         // now user selects the 'wallet' account

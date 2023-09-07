@@ -1,7 +1,19 @@
+use std::str::FromStr;
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
 use super::*;
 use crate::test_helpers::{memory_db, new_budget_using_budgeting, BILLS, INITIAL, TRAVEL, UNUSED};
 use diesel::prelude::*;
+use crate::parse_date;
 
+#[test]
+fn date_parsing_tests() {
+    let nd = NaiveDate::from_str("2021-05-17").unwrap();
+    let nt = NaiveTime::from_str("00:00:00").unwrap();
+    println!("{} {}", nd, nt);
+    assert_eq!(parse_date("2021-05-17"), NaiveDateTime::new(
+        nd, nt
+    ))
+}
 #[test]
 fn managing_multiple_budget_accounts() {
     // let mut dd = DbDropper::new();

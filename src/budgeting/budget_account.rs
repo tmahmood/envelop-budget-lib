@@ -1,13 +1,12 @@
 use crate::schema::budget_accounts;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDateTime};
 use diesel::prelude::*;
 use diesel::SqliteConnection;
 use diesel::{Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
+use std::ops::DerefMut;
+use diesel::result::Error as DieselError;
 
 use crate::budgeting::budgeting_errors::BudgetingErrors;
 use crate::{current_date, DbConnection};
@@ -46,29 +45,19 @@ impl BudgetAccountBuilder {
         self
     }
 
-    pub fn build(&mut self) -> BudgetAccount {
+    pub fn build(&mut self) -> Result<BudgetAccount, BudgetingErrors> {
         let new_budget = NewBudgetAccount {
             filed_as: &self.filed_as,
             date_created: self.date_created.unwrap_or_else(current_date),
         };
-        let mut conn = (*self.conn).borrow_mut();
-        let b: QueryResult<BudgetAccount> = {
-            use crate::schema::budget_accounts;
-            use crate::schema::budget_accounts::dsl::*;
-            use diesel::prelude::*;
-            diesel::insert_into(budget_accounts::table)
-                .values(new_budget)
-                .execute(conn.deref_mut())
-                .expect("Error saving");
-            budget_accounts
-                .order(id.desc())
-                .limit(1)
-                .first::<BudgetAccount>(conn.deref_mut())
-        };
-        if b.is_err() {
-            panic!("Failed to create budget account");
-        }
-        b.unwrap()
+        let mut _conn = (*self.conn).borrow_mut();
+        let conn = _conn.deref_mut();
+        save_model!(conn, budget_accounts, new_budget, BudgetAccount).map_err(|e|
+            match e {
+                DieselError::NotFound => BudgetingErrors::BudgetAccountNotFound,
+                e => BudgetingErrors::UnspecifiedDatabaseError(e)
+            }
+        )
     }
 }
 
@@ -179,7 +168,6 @@ impl BudgetAccountModel {
             Err(e) => Err(BudgetingErrors::UnspecifiedDatabaseError(e)),
         }
     }
-
 }
 
 #[derive(Default)]

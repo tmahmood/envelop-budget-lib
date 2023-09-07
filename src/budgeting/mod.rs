@@ -13,6 +13,7 @@ use diesel::{BoolExpressionMethods, QueryDsl, QueryResult, RunQueryDsl, SqliteCo
 use std::borrow::BorrowMut;
 use std::cell::{RefCell};
 use std::collections::HashMap;
+use std::env;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use crate::speller::Speller;
@@ -48,7 +49,7 @@ impl Budgeting {
         if budget_account.is_ok() {
             return Err(BudgetingErrors::FailedToCreateBudget(filed_as.to_string()));
         }
-        let b = BudgetAccountBuilder::new(Rc::clone(&self.conn), filed_as).build();
+        let b = BudgetAccountBuilder::new(Rc::clone(&self.conn), filed_as).build()?;
         self.budget = Some(b.clone());
         self.new_transaction_to_category(DEFAULT_CATEGORY)?
             .income(amount)
@@ -441,6 +442,7 @@ impl Budgeting {
 
 impl Default for Budgeting {
     fn default() -> Self {
+        env::set_var("DATABASE_URL", "db.sqlite");
         let conn = establish_connection();
         Budgeting::new(conn)
     }
