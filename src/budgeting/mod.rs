@@ -440,13 +440,6 @@ impl Budgeting {
     }
 }
 
-impl Default for Budgeting {
-    fn default() -> Self {
-        env::set_var("DATABASE_URL", "db.sqlite");
-        let conn = establish_connection();
-        Budgeting::new(conn)
-    }
-}
 
 #[cfg(test)]
 pub mod tests;

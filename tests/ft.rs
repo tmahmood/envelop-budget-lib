@@ -198,7 +198,7 @@ mod tests {
         // lets try again
         let transaction_builder = budgeting
             .new_transaction_to_category("Travels");
-        // Unfortunately the category does not exists, but the error message will help well,
+        // The category does not exists, but the error message will help
         // to figure out what went wrong
         let e = transaction_builder.err().unwrap();
         assert_eq!(

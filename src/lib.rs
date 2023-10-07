@@ -98,8 +98,7 @@ pub fn parse_date(date_created: &str) -> NaiveDateTime {
 
 /// creates database connection
 // TODO: should return a result object instead of connection for error handling
-pub fn establish_connection() -> SqliteConnection {
-    let database_url = env::var("DATABASE_URL").unwrap();
+pub fn establish_connection(database_url: &str) -> SqliteConnection {
     SqliteConnection::establish(&database_url)
         .unwrap_or_else(|_| {
             error!(
